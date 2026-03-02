@@ -9,20 +9,25 @@ config ZMK_KEYBOARD_NAME
 if USB_DEVICE_STACK
 
 config USB_NRFX
+    bool
     default y
 
 endif # USB_DEVICE_STACK
 
 config BT_CTLR
-    default BT
+    bool
+    default y
 
 config SPI
+    bool
     default y
 
 config ZMK_GPIO_595
+    bool
     default y
 
 config ZMK_KSCAN_GPIO_MATRIX
+    bool
     default y
 
 endif # BOARD_HNKB40

@@ -5,10 +5,6 @@ on:
     paths:
       - ".github/workflows/build.yml"
       - "app/**"
-  pull_request:
-    paths:
-      - ".github/workflows/build.yml"
-      - "app/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'schedule' }}

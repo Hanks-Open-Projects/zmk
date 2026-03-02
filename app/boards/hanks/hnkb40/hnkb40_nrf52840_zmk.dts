@@ -17,7 +17,7 @@
 
 / {
     model = "hnkb40";
-    compatible = "zmk,hnkb40";
+    compatible = "nordic,nrf52840-qiaa";
 
     chosen {
         zephyr,code-partition = &code_partition;

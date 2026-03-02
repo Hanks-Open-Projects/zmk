@@ -121,7 +121,7 @@ RC(0,0)     RC(0,5) RC(0,8) RC(0,13) RC(0,16) RC(0,21) RC(0,24) RC(0,29) RC(0,32
     };
 };
 
-zephyr_udc0: &usbd {
+&usbd {
     status = "okay";
 };
 

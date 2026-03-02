@@ -17,7 +17,7 @@
 
 / {
     model = "hnkb40";
-    compatible = "zmk,gpio-595";
+    compatible = "zmk,hnkb40";
 
     chosen {
         zephyr,code-partition = &code_partition;

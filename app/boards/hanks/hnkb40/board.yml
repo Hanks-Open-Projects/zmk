@@ -1,0 +1,5 @@
+board:
+  name: hnkb40
+  vendor: hanks
+  socs:
+    - name: nrf52840

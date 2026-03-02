@@ -13,9 +13,6 @@ config USB_NRFX
 
 endif # USB_DEVICE_STACK
 
-config BT_CTLR
-    default BT
-
 config SPI
     default y
 

@@ -14,7 +14,6 @@
         label = "HNKB40 keymap";
 
         default_layer {
-            label = "Default Layer";
 
             // | TAB         | Q | W | E | R | T | Y | U | I | O | P | BSPC |
             // | CAPS/CTRL   | A | S | D | F | G | H | J | K | L | ENTER     |
@@ -29,7 +28,6 @@
         };
 
         first_layer {
-            label = "Layer One";
 
             // | ESC | 1 | 2 | 3 | 4 | 5 | INS | HOME | END | [ | ] | BSPC |
             // | CTRL | 6 | 7 | 8 | 9 | 0 | PSCRN | PGUP | ; | ' | ENTER |
@@ -44,7 +42,6 @@
         };
 
         second_layer {
-            label = "Layer Two";
 
             // | ` | ← | ↓ | ↑ | → | --- | RGB_TOG  | BT0 | BT1 | BT2 | BT3 | CLR |
             // | --- | F1 | F2 | F3 | F4 | F5       | --- | --- | --- | --- | BOOT |
@@ -59,7 +56,6 @@
         };
 
         third_layer {
-            label = "Layer Three";
 
             // | ~ | ! | @ | # | $ | % | --- | --- | --- | [ | ] | --- |
             // | --- | ^ | & | * | ( | ) | --- | --- | : | " | Shift+Enter |

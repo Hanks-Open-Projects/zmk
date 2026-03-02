@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2021 Nick Winans
- *
  * SPDX-License-Identifier: MIT
  */
 
@@ -80,8 +79,7 @@ RC(0,0)     RC(0,5) RC(0,8) RC(0,13) RC(0,16) RC(0,21) RC(0,24) RC(0,29) RC(0,32
     };
 };
 
-/* Top-level hardware enabling */
-
+/* Enable hardware controllers */
 &adc { status = "okay"; };
 &gpiote { status = "okay"; };
 &gpio0 { status = "okay"; };
@@ -123,7 +121,9 @@ RC(0,0)     RC(0,5) RC(0,8) RC(0,13) RC(0,16) RC(0,21) RC(0,24) RC(0,29) RC(0,32
     };
 };
 
-&usbd { status = "okay"; };
+zephyr_udc0: &usbd {
+    status = "okay";
+};
 
 &flash0 {
     partitions {
@@ -131,10 +131,21 @@ RC(0,0)     RC(0,5) RC(0,8) RC(0,13) RC(0,16) RC(0,21) RC(0,24) RC(0,29) RC(0,32
         #address-cells = <1>;
         #size-cells = <1>;
 
-        sd_partition: partition@0 { reg = <0x00000000 0x00001000>; };
-        code_partition: partition@1000 { reg = <0x00001000 0x000d3000>; };
-        storage_partition: partition@d4000 { reg = <0x000d4000 0x00020000>; };
-        boot_partition: partition@f4000 { reg = <0x000f4000 0x0000c000>; };
+        sd_partition: partition@0 {
+            reg = <0x00000000 0x00001000>;
+        };
+
+        code_partition: partition@1000 {
+            reg = <0x00001000 0x000d3000>;
+        };
+
+        storage_partition: partition@d4000 {
+            reg = <0x000d4000 0x00020000>;
+        };
+
+        boot_partition: partition@f4000 {
+            reg = <0x000f4000 0x0000c000>;
+        };
     };
 };
 

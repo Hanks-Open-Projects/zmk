@@ -91,7 +91,8 @@ static int setup_pin_dir(const struct device *dev, uint32_t pin, int flags) {
 
 static int reg_595_port_get_raw(const struct device *dev, uint32_t *value) { return -ENOTSUP; }
 
-static int reg_595_port_set_masked_raw(const struct device *dev, gpio_port_pins_t mask, gpio_port_value_t value) {
+static int reg_595_port_set_masked_raw(const struct device *dev, gpio_port_pins_t mask,
+                                       gpio_port_value_t value) {
     struct reg_595_drv_data *const drv_data = (struct reg_595_drv_data *const)dev->data;
     uint64_t buf;
     int ret;

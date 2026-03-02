@@ -14,11 +14,11 @@ A 40% wireless keyboard powered by the nRF52840 SoC.
 
 The keyboard uses 6 daisy-chained 74HC595 shift registers to scan 48 key positions with minimal GPIO usage:
 
-| Signal | Pin   | Description |
-|--------|-------|-------------|
-| MOSI   | P1.14 | Serial data to shift registers |
-| SCK    | P1.13 | Shift register clock |
-| CS     | P0.06 | Latch/RCLK (directly directly to RCLK on the first 595A) |
+| Signal | Pin   | Description                                                       |
+| ------ | ----- | ----------------------------------------------------------------- |
+| MOSI   | P1.14 | Serial data to shift registers                                    |
+| SCK    | P1.13 | Shift register clock                                              |
+| CS     | P0.06 | Latch/RCLK (directly connected to RCLK on the first 595A)         |
 | Sense  | P1.15 | Key sense input (directly connects to the output pin of the 595A) |
 
 ## Building

@@ -40,20 +40,20 @@ struct reg_595_drv_data {
 
     struct k_sem lock;
 
-    uint32_t gpio_cache;
+    uint64_t gpio_cache;
 };
 
-static int reg_595_write_registers(const struct device *dev, uint32_t value) {
+static int reg_595_write_registers(const struct device *dev, uint64_t value) {
     const struct reg_595_config *config = dev->config;
     struct reg_595_drv_data *const drv_data = (struct reg_595_drv_data *const)dev->data;
     int ret = 0;
 
     uint8_t nwrite = config->ngpios / 8;
-    uint32_t reg_data = sys_cpu_to_be32(value);
+    uint64_t reg_data = sys_cpu_to_be64(value);
 
-    /* Allow a sequence of 1-4 registers in sequence, lowest byte is for the first in the chain */
+    /* Allow a sequence of 1-8 registers in sequence, lowest byte is for the first in the chain */
     const struct spi_buf tx_buf[1] = {{
-        .buf = ((uint8_t *)&reg_data) + (4 - nwrite),
+        .buf = ((uint8_t *)&reg_data) + (8 - nwrite),
         .len = nwrite,
     }};
 
@@ -91,9 +91,9 @@ static int setup_pin_dir(const struct device *dev, uint32_t pin, int flags) {
 
 static int reg_595_port_get_raw(const struct device *dev, uint32_t *value) { return -ENOTSUP; }
 
-static int reg_595_port_set_masked_raw(const struct device *dev, uint32_t mask, uint32_t value) {
+static int reg_595_port_set_masked_raw(const struct device *dev, gpio_port_pins_t mask, gpio_port_value_t value) {
     struct reg_595_drv_data *const drv_data = (struct reg_595_drv_data *const)dev->data;
-    uint32_t buf;
+    uint64_t buf;
     int ret;
 
     /* Can't do SPI bus operations from an ISR */
@@ -112,17 +112,17 @@ static int reg_595_port_set_masked_raw(const struct device *dev, uint32_t mask, 
     return ret;
 }
 
-static int reg_595_port_set_bits_raw(const struct device *dev, uint32_t mask) {
+static int reg_595_port_set_bits_raw(const struct device *dev, gpio_port_pins_t mask) {
     return reg_595_port_set_masked_raw(dev, mask, mask);
 }
 
-static int reg_595_port_clear_bits_raw(const struct device *dev, uint32_t mask) {
+static int reg_595_port_clear_bits_raw(const struct device *dev, gpio_port_pins_t mask) {
     return reg_595_port_set_masked_raw(dev, mask, 0);
 }
 
-static int reg_595_port_toggle_bits(const struct device *dev, uint32_t mask) {
+static int reg_595_port_toggle_bits(const struct device *dev, gpio_port_pins_t mask) {
     struct reg_595_drv_data *const drv_data = (struct reg_595_drv_data *const)dev->data;
-    uint32_t buf;
+    uint64_t buf;
     int ret;
 
     /* Can't do SPI bus operations from an ISR */
@@ -159,9 +159,9 @@ static int reg_595_pin_config(const struct device *dev, gpio_pin_t pin, gpio_fla
     }
 
     if ((flags & GPIO_OUTPUT_INIT_LOW) != 0) {
-        return reg_595_port_clear_bits_raw(dev, BIT(pin));
+        return reg_595_port_clear_bits_raw(dev, BIT64(pin));
     } else if ((flags & GPIO_OUTPUT_INIT_HIGH) != 0) {
-        return reg_595_port_set_bits_raw(dev, BIT(pin));
+        return reg_595_port_set_bits_raw(dev, BIT64(pin));
     }
 
     return ret;

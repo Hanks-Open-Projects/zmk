@@ -4,19 +4,23 @@
 if BOARD_HNKB40
 
 config ZMK_KEYBOARD_NAME
-    default "hnkb40-lp"
+    default "hnkb40"
 
-if USB_DEVICE_STACK
-
-config USB_NRFX
+# This enables the core ZMK logic for the board
+config ZMK
+    bool
     default y
 
-endif # USB_DEVICE_STACK
-
-config BT_CTLR
-    default BT
+# Enable the 595 shift register GPIO driver
+config GPIO_595
+    default y
 
 config SPI
     default y
+
+if USB_DEVICE_STACK
+config USB_NRFX
+    default y
+endif
 
 endif # BOARD_HNKB40

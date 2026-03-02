@@ -49,7 +49,7 @@
             // | ` | ← | ↓ | ↑ | → | --- | RGB_TOG  | BT0 | BT1 | BT2 | BT3 | CLR |
             // | --- | F1 | F2 | F3 | F4 | F5       | --- | --- | --- | --- | BOOT |
             // | --- | F6 | F7 | F8 | F9 | F10 | F11 | F12 | --- | --- | SHIFT |
-            // | --- | --- | --- | --- | --- | --- | --- | --- 
+            // | --- | --- | --- | --- | --- | --- | --- | ---
             bindings = <
                 &kp GRAVE   &kp LEFT   &kp DOWN  &kp UP     &kp RIGHT    &trans      &rgb_ug RGB_TOG     &bt BT_SEL 0 &bt BT_SEL 1 &bt BT_SEL 2 &bt BT_SEL 3 &bt BT_CLR
                 &trans      &kp F1     &kp F2    &kp F3     &kp F4       &kp F5      &trans              &trans      &trans      &trans      &bootloader

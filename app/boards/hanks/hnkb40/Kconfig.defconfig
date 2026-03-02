@@ -19,4 +19,10 @@ config BT_CTLR
 config SPI
     default y
 
+config ZMK_KSCAN_595A
+    default y
+
+config KSCAN
+    default y
+
 endif # BOARD_HNKB40

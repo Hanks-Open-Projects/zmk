@@ -11,9 +11,6 @@ config ZMK_KEYBOARD_NAME
 config SPI
     default y
 
-config ZMK_GPIO_595
-    default y
-
 if USB_DEVICE_STACK
 config USB_NRFX
     default y

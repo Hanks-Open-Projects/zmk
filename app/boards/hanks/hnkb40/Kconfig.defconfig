@@ -6,15 +6,11 @@ if BOARD_HNKB40
 config ZMK_KEYBOARD_NAME
     default "hnkb40"
 
-# Use 'config' ONLY for the name. 
-# Use 'select' or 'default' for existing drivers.
+# Only provide defaults for standard Zephyr/ZMK symbols that have prompts
 config SPI
     default y
 
 config ZMK_GPIO_595
-    default y
-
-config ZMK_KSCAN_GPIO_MATRIX
     default y
 
 if USB_DEVICE_STACK

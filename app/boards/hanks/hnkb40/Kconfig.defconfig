@@ -6,35 +6,26 @@ if BOARD_HNKB40
 config ZMK_KEYBOARD_NAME
     default "hnkb40"
 
-# --- Hardware Drivers ---
-
+# Use 'config' ONLY for the name. 
+# Use 'select' or 'default' for existing drivers.
 config SPI
-    bool
     default y
 
 config ZMK_GPIO_595
-    bool
     default y
 
 config ZMK_KSCAN_GPIO_MATRIX
-    bool
     default y
-
-# --- Connectivity & Power ---
 
 if USB_DEVICE_STACK
 config USB_NRFX
-    bool
     default y
 endif
 
 config BT_CTLR
-    bool
     default y
 
-# Enable deep sleep to save battery
 config ZMK_SLEEP
-    bool
     default y
 
 endif # BOARD_HNKB40

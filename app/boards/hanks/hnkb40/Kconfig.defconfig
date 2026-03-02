@@ -4,7 +4,7 @@
 if BOARD_HNKB40
 
 config ZMK_KEYBOARD_NAME
-    default "hnkb40-lp"
+    default "hnkb40"
 
 if USB_DEVICE_STACK
 

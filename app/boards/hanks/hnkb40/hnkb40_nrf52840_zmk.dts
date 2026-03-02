@@ -19,56 +19,52 @@
     model = "hnkb40";
     compatible = "nordic,nrf52840-qiaa";
 
-    chosen {
-        zephyr,code-partition = &code_partition;
-        zephyr,sram = &sram0;
-        zephyr,flash = &flash0;
-        zmk,battery = &vbatt;
-        zmk,kscan = &kscan0; //
-        zmk,physical-layout = &layout_60_ansi;
-        zmk,underglow = &led_strip;
-    };
+    // ... keep chosen, vbatt, ext_power as they are ...
 
-    default_transform: keymap_transform_0 {
-        compatible = "zmk,matrix-transform";
-        columns = <48>;
-        rows = <1>;
-        map = <
-RC(0,2) RC(0,3) RC(0,10) RC(0,11) RC(0,18) RC(0,19) RC(0,26) RC(0,27) RC(0,34) RC(0,35) RC(0,41) RC(0,42)
-RC(0,1)    RC(0,4) RC(0,9) RC(0,12) RC(0,17) RC(0,20) RC(0,25) RC(0,28) RC(0,33) RC(0,36)        RC(0,43)
-RC(0,0)     RC(0,5) RC(0,8) RC(0,13) RC(0,16) RC(0,21) RC(0,24) RC(0,29) RC(0,32) RC(0,40)       RC(0,44)
-    RC(0,7) RC(0,6) RC(0,15)         RC(0,14)            RC(0,22)            RC(0,30) RC(0,39) RC(0,47)
-        >;
-    };
+    // OFFICIAL 595 DRIVER SETUP
+    &spi0 {
+        status = "okay";
+        pinctrl-0 = <&spi0_default>;
+        pinctrl-1 = <&spi0_sleep>;
+        pinctrl-names = "default", "sleep";
+        
+        // This is your Latch (ST_CP) pin. 
+        // Note: You previously had a blue LED on gpio1 12. 
+        // The shift register MUST have this pin to work.
+        cs-gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
 
-    kscan0: kscan {
-        compatible = "zmk,kscan-595a";
-        wakeup-source;
-        hc595a-ser-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
-        hc595a-sck-gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
-        key-sense-gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;
-        hc595a-count = <6>;
-    };
-
-// 已改
-    leds {
-        compatible = "gpio-leds";
-        blue_led: led_0 {
-            gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
+        shifter: gpio_595@0 {
+            compatible = "zmk,gpio-595";
+            reg = <0>;
+            spi-max-frequency = <2000000>;
+            gpio-controller;
+            #gpio-cells = <2>;
+            ngpios = <48>; // 6 registers * 8
         };
     };
 
-    // Node name must match original "EXT_POWER" label to preserve user settings.
-    EXT_POWER {
-        compatible = "zmk,ext-power-generic";
-        control-gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;
-    };
+    kscan0: kscan {
+        compatible = "zmk,kscan-gpio-matrix";
+        wakeup-source;
+        diode-direction = "col2row";
 
-    vbatt: vbatt {
-        compatible = "zmk,battery-voltage-divider";
-        io-channels = <&adc 2>;
-        output-ohms = <2000000>;
-        full-ohms = <(2000000 + 806000)>;
+        // Your original 'key-sense-gpios' pin
+        row-gpios = <&gpio1 15 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+
+        col-gpios
+            = <&shifter 0 GPIO_ACTIVE_HIGH>, <&shifter 1 GPIO_ACTIVE_HIGH>, <&shifter 2 GPIO_ACTIVE_HIGH>, <&shifter 3 GPIO_ACTIVE_HIGH>
+            , <&shifter 4 GPIO_ACTIVE_HIGH>, <&shifter 5 GPIO_ACTIVE_HIGH>, <&shifter 6 GPIO_ACTIVE_HIGH>, <&shifter 7 GPIO_ACTIVE_HIGH>
+            , <&shifter 8 GPIO_ACTIVE_HIGH>, <&shifter 9 GPIO_ACTIVE_HIGH>, <&shifter 10 GPIO_ACTIVE_HIGH>, <&shifter 11 GPIO_ACTIVE_HIGH>
+            , <&shifter 12 GPIO_ACTIVE_HIGH>, <&shifter 13 GPIO_ACTIVE_HIGH>, <&shifter 14 GPIO_ACTIVE_HIGH>, <&shifter 15 GPIO_ACTIVE_HIGH>
+            , <&shifter 16 GPIO_ACTIVE_HIGH>, <&shifter 17 GPIO_ACTIVE_HIGH>, <&shifter 18 GPIO_ACTIVE_HIGH>, <&shifter 19 GPIO_ACTIVE_HIGH>
+            , <&shifter 20 GPIO_ACTIVE_HIGH>, <&shifter 21 GPIO_ACTIVE_HIGH>, <&shifter 22 GPIO_ACTIVE_HIGH>, <&shifter 23 GPIO_ACTIVE_HIGH>
+            , <&shifter 24 GPIO_ACTIVE_HIGH>, <&shifter 25 GPIO_ACTIVE_HIGH>, <&shifter 26 GPIO_ACTIVE_HIGH>, <&shifter 27 GPIO_ACTIVE_HIGH>
+            , <&shifter 28 GPIO_ACTIVE_HIGH>, <&shifter 29 GPIO_ACTIVE_HIGH>, <&shifter 30 GPIO_ACTIVE_HIGH>, <&shifter 31 GPIO_ACTIVE_HIGH>
+            , <&shifter 32 GPIO_ACTIVE_HIGH>, <&shifter 33 GPIO_ACTIVE_HIGH>, <&shifter 34 GPIO_ACTIVE_HIGH>, <&shifter 35 GPIO_ACTIVE_HIGH>
+            , <&shifter 36 GPIO_ACTIVE_HIGH>, <&shifter 37 GPIO_ACTIVE_HIGH>, <&shifter 38 GPIO_ACTIVE_HIGH>, <&shifter 39 GPIO_ACTIVE_HIGH>
+            , <&shifter 40 GPIO_ACTIVE_HIGH>, <&shifter 41 GPIO_ACTIVE_HIGH>, <&shifter 42 GPIO_ACTIVE_HIGH>, <&shifter 43 GPIO_ACTIVE_HIGH>
+            , <&shifter 44 GPIO_ACTIVE_HIGH>, <&shifter 45 GPIO_ACTIVE_HIGH>, <&shifter 46 GPIO_ACTIVE_HIGH>, <&shifter 47 GPIO_ACTIVE_HIGH>
+            ;
     };
 };
 

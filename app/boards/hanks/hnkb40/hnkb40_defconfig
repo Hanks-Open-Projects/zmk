@@ -3,9 +3,6 @@ CONFIG_BT=y
 CONFIG_GPIO=y
 CONFIG_SPI=y
 
-# Critical for your 74HC595 matrix
-CONFIG_ZMK_GPIO_595=y
-
 # Connectivity and Power
 CONFIG_USB_DEVICE_STACK=y
 CONFIG_USB_NRFX=y

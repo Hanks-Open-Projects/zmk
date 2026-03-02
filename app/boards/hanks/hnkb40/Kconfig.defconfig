@@ -6,7 +6,8 @@ if BOARD_HNKB40
 config ZMK_KEYBOARD_NAME
     default "hnkb40"
 
-# Set defaults for existing symbols (no type needed here)
+# Standard ZMK/Zephyr symbols already have types defined in the source.
+# We only provide the default value here.
 config SPI
     default y
 
@@ -16,7 +17,7 @@ config ZMK_GPIO_595
 if USB_DEVICE_STACK
 config USB_NRFX
     default y
-endif # USB_DEVICE_STACK
+endif
 
 config BT_CTLR
     default y

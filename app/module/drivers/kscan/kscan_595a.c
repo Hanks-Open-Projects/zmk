@@ -82,8 +82,8 @@ static void kscan_595a_scan(struct k_work *work) {
 
     /* Scan each column */
     for (int col = 0; col < num_columns; col++) {
-        /* Small delay for signal to settle */
-        k_busy_wait(1);
+        /* Delay for signal to settle (10us) */
+        k_busy_wait(10);
 
         /* Read sense pin - LOW means key pressed (active column connects to sense) */
         int sense_val = gpio_pin_get_dt(&config->sense_gpio);
@@ -146,12 +146,12 @@ static int kscan_595a_init(const struct device *dev) {
     }
     gpio_pin_configure_dt(&config->sck_gpio, GPIO_OUTPUT_LOW);
 
-    /* Configure SENSE GPIO (input) */
+    /* Configure SENSE GPIO (input with pull-up for stable HIGH when no key pressed) */
     if (!gpio_is_ready_dt(&config->sense_gpio)) {
         LOG_ERR("SENSE GPIO not ready");
         return -ENODEV;
     }
-    gpio_pin_configure_dt(&config->sense_gpio, GPIO_INPUT);
+    gpio_pin_configure_dt(&config->sense_gpio, GPIO_INPUT | GPIO_PULL_UP);
 
     k_work_init_delayable(&data->work, kscan_595a_scan);
 

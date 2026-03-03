@@ -7,6 +7,7 @@ DT_COMPAT_ZMK_KSCAN_GPIO_DIRECT := zmk,kscan-gpio-direct
 DT_COMPAT_ZMK_KSCAN_GPIO_MATRIX := zmk,kscan-gpio-matrix
 DT_COMPAT_ZMK_KSCAN_GPIO_CHARLIEPLEX := zmk,kscan-gpio-charlieplex
 DT_COMPAT_ZMK_KSCAN_GPIO_595 := zmk,kscan-gpio-595
+DT_COMPAT_ZMK_KSCAN_GPIO_595_SPI := zmk,kscan-gpio-595-spi
 DT_COMPAT_ZMK_KSCAN_MOCK := zmk,kscan-mock
 
 if KSCAN
@@ -55,6 +56,15 @@ config ZMK_KSCAN_GPIO_595
     help
       Optimized kscan driver for 74HC595 shift registers using walking bit method.
       Much faster than using shift registers as generic GPIO expanders.
+
+config ZMK_KSCAN_GPIO_595_SPI
+    bool
+    default $(dt_compat_enabled,$(DT_COMPAT_ZMK_KSCAN_GPIO_595_SPI))
+    select GPIO
+    select SPI
+    help
+      SPI-based kscan driver for 74HC595 shift registers.
+      Uses hardware SPI for reliable timing.
 
 if ZMK_KSCAN_GPIO_MATRIX
 

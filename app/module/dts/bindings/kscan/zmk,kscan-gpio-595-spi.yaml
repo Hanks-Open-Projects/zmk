@@ -1,0 +1,21 @@
+# Copyright (c) 2024 The ZMK Contributors
+# SPDX-License-Identifier: MIT
+
+description: |
+  ZMK kscan driver for 74HC595 shift register based key matrices using SPI.
+  Uses hardware SPI to drive the shift registers for reliable timing.
+
+compatible: "zmk,kscan-gpio-595-spi"
+
+include: [kscan.yaml, spi-device.yaml]
+
+properties:
+  sense-gpios:
+    type: phandle-array
+    required: true
+    description: GPIO pin to read key state (directly connected to all keys)
+
+  num-columns:
+    type: int
+    required: true
+    description: Number of columns (shift register outputs)

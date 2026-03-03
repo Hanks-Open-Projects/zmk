@@ -35,7 +35,7 @@
             bindings = <
                 &kp ESC     &kp N1    &kp N2    &kp N3    &kp N4      &kp N5      &kp INS     &kp HOME   &kp END     &kp LBKT    &kp RBKT     &kp BSPC
                 &kp LCTRL   &kp N6    &kp N7    &kp N8    &kp N9      &kp N0      &kp PSCRN   &kp PG_UP  &kp SEMI    &kp SQT     &kp RET
-                &kp LSHFT   &kp MINUS &kp EQUAL &kp BSLH  &kp K_VOL_DN &kp K_VOL_UP &kp DEL    &kp PG_DN  &kp COMMA   &kp DOT     &kp RSHFT
+                &kp LSHFT   &kp MINUS &kp EQUAL &kp BSLH  &kp C_VOL_DN &kp C_VOL_UP &kp DEL    &kp PG_DN  &kp COMMA   &kp DOT     &kp RSHFT
                 &kp CAPS    &kp LGUI  &kp LALT  &trans     &kp SPACE    &kp SLASH   &trans      &trans
             >;
         };

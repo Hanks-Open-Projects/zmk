@@ -6,6 +6,7 @@
 
 #define DT_DRV_COMPAT zmk_kscan_gpio_595
 
+#include <string.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/kscan.h>
@@ -90,8 +91,8 @@ static void kscan_gpio_595_scan(struct k_work *work) {
         latch_outputs(config);
     }
 
-    /* Schedule next scan */
-    k_work_schedule(&data->work, K_MSEC(CONFIG_ZMK_KSCAN_DEBOUNCE_PRESS_MS));
+    /* Schedule next scan (10ms polling interval) */
+    k_work_schedule(&data->work, K_MSEC(10));
 }
 
 static int kscan_gpio_595_configure(const struct device *dev, kscan_callback_t callback) {

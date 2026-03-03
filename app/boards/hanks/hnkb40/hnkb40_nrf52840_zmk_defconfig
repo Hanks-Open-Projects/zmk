@@ -11,9 +11,8 @@ CONFIG_PINCTRL=y
 # enable GPIO
 CONFIG_GPIO=y
 
-# enable SPI for shift registers
+# enable SPI for WS2812 LED strip (SPI3)
 CONFIG_SPI=y
-CONFIG_NRFX_SPIM0=y
 CONFIG_NRFX_SPIM3=y
 CONFIG_SPI_NRFX=y
 CONFIG_SPI_NRFX_RAM_BUFFER_SIZE=8
@@ -42,5 +41,5 @@ CONFIG_ZMK_KSCAN_DEBOUNCE_RELEASE_MS=5
 CONFIG_ZMK_USB=y
 CONFIG_ZMK_BLE=y
 
-# Enable 595 shift register GPIO driver
-CONFIG_GPIO_595=y
+# Note: Using optimized zmk,kscan-gpio-595 driver with walking bit method
+# (no SPI-based GPIO_595 driver needed)

@@ -63,39 +63,42 @@ static void kscan_595a_scan(struct k_work *work) {
      * Walking bit scan - matching luo_nice60 interface
      *
      * With RCLK tied to VCC, outputs update immediately on clock edges.
-     * We shift a single HIGH bit through the chain and read sense after each shift.
+     * DATA (SER) is kept HIGH normally. We walk a single LOW (0) through
+     * the chain to select each column.
      */
 
-    /* Initialize: Clear all outputs by shifting in all 0s */
-    gpio_pin_set_dt(&config->ser_gpio, 0);
+    /* Initialize: Fill all outputs with 1s (inactive) */
+    gpio_pin_set_dt(&config->ser_gpio, 1);
     for (int i = 0; i < num_columns; i++) {
         gpio_pin_set_dt(&config->sck_gpio, 1);
         gpio_pin_set_dt(&config->sck_gpio, 0);
     }
 
-    /* Now shift in a single 1 and walk it through */
-    gpio_pin_set_dt(&config->ser_gpio, 1);
+    /* Now shift in a single 0 (active column) and walk it through */
+    gpio_pin_set_dt(&config->ser_gpio, 0);
     gpio_pin_set_dt(&config->sck_gpio, 1);
     gpio_pin_set_dt(&config->sck_gpio, 0);
-    gpio_pin_set_dt(&config->ser_gpio, 0);  /* Back to 0 for subsequent shifts */
+    gpio_pin_set_dt(&config->ser_gpio, 1);  /* Back to 1 for subsequent shifts */
 
     /* Scan each column */
     for (int col = 0; col < num_columns; col++) {
         /* Small delay for signal to settle */
         k_busy_wait(1);
 
-        /* Read sense pin */
-        bool pressed = gpio_pin_get_dt(&config->sense_gpio);
+        /* Read sense pin - LOW means key pressed (active column connects to sense) */
+        int sense_val = gpio_pin_get_dt(&config->sense_gpio);
+        /* Invert: sense is HIGH normally, goes LOW when pressed */
+        bool pressed = (sense_val == 0);
 
         if (pressed != data->pressed[col]) {
             data->pressed[col] = pressed;
-            LOG_INF("Key col=%d %s", col, pressed ? "PRESSED" : "released");
+            LOG_INF("Key col=%d %s (sense=%d)", col, pressed ? "PRESSED" : "released", sense_val);
             if (data->callback) {
                 data->callback(dev, 0, col, pressed);
             }
         }
 
-        /* Shift to next column (shift in 0, walking the 1 forward) */
+        /* Shift to next column (shift in 1, walking the 0 forward) */
         gpio_pin_set_dt(&config->sck_gpio, 1);
         gpio_pin_set_dt(&config->sck_gpio, 0);
     }
@@ -129,12 +132,12 @@ static int kscan_595a_init(const struct device *dev) {
     data->dev = dev;
     memset(data->pressed, 0, sizeof(data->pressed));
 
-    /* Configure SER GPIO (output) */
+    /* Configure SER GPIO (output, start HIGH) */
     if (!gpio_is_ready_dt(&config->ser_gpio)) {
         LOG_ERR("SER GPIO not ready");
         return -ENODEV;
     }
-    gpio_pin_configure_dt(&config->ser_gpio, GPIO_OUTPUT_LOW);
+    gpio_pin_configure_dt(&config->ser_gpio, GPIO_OUTPUT_HIGH);
 
     /* Configure SCK GPIO (output) */
     if (!gpio_is_ready_dt(&config->sck_gpio)) {

@@ -39,29 +39,57 @@ static void kscan_gpio_595_scan(struct k_work *work) {
 
     scan_count++;
 
-    /* Log every 500 scans (~5 seconds) */
-    if (scan_count % 500 == 0) {
-        int sense = gpio_pin_get_dt(&config->sense_gpio);
-        LOG_INF("Scan %d: sense=%d", scan_count, sense);
+    /* First scan - log configuration */
+    if (scan_count == 1) {
+        LOG_INF("=== kscan-gpio-595 configuration ===");
+        LOG_INF("SER pin: port=%p pin=%d", config->ser_gpio.port, config->ser_gpio.pin);
+        LOG_INF("SCK pin: port=%p pin=%d", config->sck_gpio.port, config->sck_gpio.pin);
+        LOG_INF("SENSE pin: port=%p pin=%d", config->sense_gpio.port, config->sense_gpio.pin);
+        LOG_INF("Columns: %d", config->num_columns);
+        LOG_INF("=== Starting scan ===");
     }
 
-    /* Basic walking bit scan */
+    /* Slow diagnostic: first 10 scans with visible clock pulses */
+    if (scan_count <= 10) {
+        LOG_INF("SLOW SCAN %d - watch SCK with meter", scan_count);
+        gpio_pin_set_dt(&config->ser_gpio, 1);
+        for (int i = 0; i < 8; i++) {
+            gpio_pin_set_dt(&config->sck_gpio, 1);
+            k_msleep(100);  /* 100ms high - visible on meter */
+            gpio_pin_set_dt(&config->sck_gpio, 0);
+            k_msleep(100);  /* 100ms low */
+        }
+        int sense = gpio_pin_get_dt(&config->sense_gpio);
+        LOG_INF("After slow shift: sense=%d", sense);
+        k_work_schedule(&data->work, K_MSEC(500));
+        return;
+    }
 
-    /* Step 1: Clear - shift in zeros */
-    gpio_pin_set_dt(&config->ser_gpio, 0);
+    /* Log every 100 scans (~1 second) */
+    if (scan_count % 100 == 0) {
+        int sense = gpio_pin_get_dt(&config->sense_gpio);
+        LOG_INF("Scan %d: sense=%d (raw gpio)", scan_count, sense);
+    }
+
+    /* Walking bit scan - ACTIVE LOW logic */
+    /* Fill register with 1s (inactive), then walk a single 0 (active) */
+
+    /* Step 1: Fill with 1s (all columns inactive) */
+    gpio_pin_set_dt(&config->ser_gpio, 1);
     for (int i = 0; i < config->num_columns; i++) {
         gpio_pin_set_dt(&config->sck_gpio, 1);
         gpio_pin_set_dt(&config->sck_gpio, 0);
     }
 
-    /* Step 2: Shift in a single 1 */
-    gpio_pin_set_dt(&config->ser_gpio, 1);
+    /* Step 2: Shift in a single 0 (first column active) */
+    gpio_pin_set_dt(&config->ser_gpio, 0);
     gpio_pin_set_dt(&config->sck_gpio, 1);
     gpio_pin_set_dt(&config->sck_gpio, 0);
-    gpio_pin_set_dt(&config->ser_gpio, 0);
+    gpio_pin_set_dt(&config->ser_gpio, 1);  /* Back to 1 for subsequent shifts */
 
     /* Step 3: Walk through columns */
     for (int col = 0; col < config->num_columns; col++) {
+        /* gpio_pin_get_dt handles GPIO_ACTIVE_LOW flag */
         bool pressed = gpio_pin_get_dt(&config->sense_gpio);
 
         if (pressed != data->pressed[col]) {
@@ -72,7 +100,7 @@ static void kscan_gpio_595_scan(struct k_work *work) {
             }
         }
 
-        /* Shift to next column */
+        /* Shift to next column (shift in 1, walking the 0 forward) */
         gpio_pin_set_dt(&config->sck_gpio, 1);
         gpio_pin_set_dt(&config->sck_gpio, 0);
     }
@@ -88,25 +116,9 @@ static int kscan_gpio_595_configure(const struct device *dev, kscan_callback_t c
 
 static int kscan_gpio_595_enable(const struct device *dev) {
     struct kscan_gpio_595_data *data = dev->data;
-    const struct kscan_gpio_595_config *config = dev->config;
-
-    /* Wait 30 seconds for user to open PuTTY */
-    LOG_INF("=== Waiting 30 seconds - open PuTTY now! ===");
-    k_msleep(30000);
-
-    LOG_INF("=== kscan-gpio-595 configuration ===");
-    LOG_INF("SER pin: %d", config->ser_gpio.pin);
-    LOG_INF("SCK pin: %d", config->sck_gpio.pin);
-    LOG_INF("SENSE pin: %d", config->sense_gpio.pin);
-    LOG_INF("Columns: %d", config->num_columns);
-    LOG_INF("RCLK: %s", config->rclk_gpio.port ? "configured" : "not used");
-
-    /* Test sense pin */
-    int sense_val = gpio_pin_get_dt(&config->sense_gpio);
-    LOG_INF("Current sense value: %d", sense_val);
-
-    LOG_INF("=== Starting scan ===");
-    k_work_schedule(&data->work, K_NO_WAIT);
+    LOG_INF("kscan-gpio-595 enable called");
+    /* Delay start by 5 seconds to let USB enumerate */
+    k_work_schedule(&data->work, K_SECONDS(5));
     return 0;
 }
 

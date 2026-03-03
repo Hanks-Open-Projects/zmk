@@ -50,8 +50,8 @@ RC(0,0)     RC(0,5) RC(0,8) RC(0,13) RC(0,16) RC(0,21) RC(0,24) RC(0,29) RC(0,32
         ser-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;   /* Serial data (SER/DS) */
         sck-gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;   /* Shift clock (SRCLK/SHCP) */
 
-        /* Key sense input */
-        sense-gpios = <&gpio1 15 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+        /* Key sense input - active LOW with pull-up */
+        sense-gpios = <&gpio1 15 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 
         /* 6x 74HC595 = 48 columns */
         num-columns = <48>;

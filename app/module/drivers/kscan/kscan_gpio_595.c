@@ -69,6 +69,24 @@ static void kscan_gpio_595_scan(struct k_work *work) {
         LOG_INF("=== DIAGNOSTIC: 595 Walking Bit Test ===");
         LOG_INF("===========================================");
 
+        /* Test 0: Verify GPIO port and pins */
+        LOG_INF("Test 0 - GPIO verification...");
+        LOG_INF("  SER: port=%p pin=%d", (void*)config->ser_gpio.port, config->ser_gpio.pin);
+        LOG_INF("  SCK: port=%p pin=%d", (void*)config->sck_gpio.port, config->sck_gpio.pin);
+        LOG_INF("  SENSE: port=%p pin=%d", (void*)config->sense_gpio.port, config->sense_gpio.pin);
+
+        /* Toggle SER and SCK using raw GPIO to verify they work */
+        LOG_INF("  Toggling SER and SCK pins (check with scope/multimeter)...");
+        for (int i = 0; i < 5; i++) {
+            gpio_pin_set_raw(config->ser_gpio.port, config->ser_gpio.pin, 1);
+            gpio_pin_set_raw(config->sck_gpio.port, config->sck_gpio.pin, 1);
+            k_msleep(100);
+            gpio_pin_set_raw(config->ser_gpio.port, config->ser_gpio.pin, 0);
+            gpio_pin_set_raw(config->sck_gpio.port, config->sck_gpio.pin, 0);
+            k_msleep(100);
+        }
+        LOG_INF("  Done toggling (5 cycles, 100ms each)");
+
         /* Test 1: Sense pin pull-up test */
         LOG_INF("Test 1 - Sense pin pull-up/pull-down...");
         gpio_pin_configure(config->sense_gpio.port, config->sense_gpio.pin, GPIO_INPUT | GPIO_PULL_DOWN);
@@ -110,8 +128,8 @@ static void kscan_gpio_595_scan(struct k_work *work) {
         int all0 = gpio_pin_get_raw(config->sense_gpio.port, config->sense_gpio.pin);
         LOG_INF("  All 0s sense=%d (expect 0)", all0);
 
-        /* Test 4: Walking bit - check each column */
-        LOG_INF("Test 4 - Walking bit scan (KEEP KEY HELD!)...");
+        /* Test 4: Walking bit - try reading WHILE clock is HIGH (transparent mode) */
+        LOG_INF("Test 4 - Walking bit with clock-high read (KEEP KEY HELD!)...");
 
         /* Clear register */
         gpio_pin_set_dt(&config->ser_gpio, 0);
@@ -130,19 +148,23 @@ static void kscan_gpio_595_scan(struct k_work *work) {
         k_msleep(1);
         gpio_pin_set_dt(&config->ser_gpio, 0);
 
-        /* Walk and log each column */
-        for (int col = 0; col < config->num_columns; col++) {
-            k_msleep(5);
-            int val = gpio_pin_get_raw(config->sense_gpio.port, config->sense_gpio.pin);
-            if (val) {
-                LOG_INF("  KEY DETECTED at col %d!", col);
-            }
-            /* Shift to next */
+        /* Walk and log each column - read BOTH when clock is low AND high */
+        for (int col = 0; col < 16; col++) {
+            /* Read when clock is LOW */
+            k_msleep(2);
+            int val_low = gpio_pin_get_raw(config->sense_gpio.port, config->sense_gpio.pin);
+
+            /* Pulse clock HIGH and read while HIGH */
             gpio_pin_set_dt(&config->sck_gpio, 1);
-            k_msleep(1);
+            k_msleep(2);
+            int val_high = gpio_pin_get_raw(config->sense_gpio.port, config->sense_gpio.pin);
             gpio_pin_set_dt(&config->sck_gpio, 0);
-            k_msleep(1);
+
+            if (val_low || val_high) {
+                LOG_INF("  col %d: clk_low=%d clk_high=%d", col, val_low, val_high);
+            }
         }
+        LOG_INF("  (If no output, no keys detected in cols 0-15)");
 
         /* Restore */
         gpio_pin_configure_dt(&config->sense_gpio, GPIO_INPUT);

@@ -1,0 +1,54 @@
+# Copyright (c) 2024 The ZMK Contributors
+# SPDX-License-Identifier: MIT
+
+description: |
+  Optimized kscan driver for 74HC595 shift registers using "walking bit" method.
+
+  Instead of using the shift register as a generic GPIO expander (which requires
+  shifting N bits for each column), this driver shifts in a single "1" and walks
+  it through the chain with one clock pulse per column.
+
+  Performance: Reduces clock cycles from N*N to N+1 per scan (~47x faster for 48 columns).
+
+  Example:
+    kscan0: kscan {
+        compatible = "zmk,kscan-gpio-595";
+        ser-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+        sck-gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
+        rclk-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;  /* optional */
+        sense-gpios = <&gpio1 15 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+        num-columns = <48>;
+    };
+
+compatible: "zmk,kscan-gpio-595"
+
+include: kscan.yaml
+
+properties:
+  ser-gpios:
+    type: phandle-array
+    required: true
+    description: Serial data pin connected to SER/DS on the first 74HC595
+
+  sck-gpios:
+    type: phandle-array
+    required: true
+    description: Shift clock pin connected to SRCLK/SHCP on all 74HC595s
+
+  rclk-gpios:
+    type: phandle-array
+    required: false
+    description: |
+      Storage/latch clock pin connected to RCLK/STCP on all 74HC595s.
+      If not specified, outputs update on every shift clock pulse.
+      If specified, outputs only update when this pin is pulsed.
+
+  sense-gpios:
+    type: phandle-array
+    required: true
+    description: Key sense input pin to detect key presses
+
+  num-columns:
+    type: int
+    required: true
+    description: Number of columns (total shift register output bits)

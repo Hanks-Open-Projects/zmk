@@ -11,9 +11,8 @@ CONFIG_PINCTRL=y
 # enable GPIO
 CONFIG_GPIO=y
 
-# enable SPI for WS2812 LED strip (SPI3) and 74HC595 shift registers (SPI0)
+# enable SPI for WS2812 LED strip (SPI3)
 CONFIG_SPI=y
-CONFIG_NRFX_SPIM0=y
 CONFIG_NRFX_SPIM3=y
 CONFIG_SPI_NRFX=y
 CONFIG_SPI_NRFX_RAM_BUFFER_SIZE=8
@@ -40,4 +39,4 @@ CONFIG_ZMK_RGB_UNDERGLOW_EFF_START=3
 CONFIG_ZMK_USB=y
 CONFIG_ZMK_BLE=y
 
-# Note: Using zmk,kscan-gpio-595-spi driver with hardware SPI
+# Note: Using zmk,kscan-595a driver with GPIO bit-banging (luo_nice60 compatible)

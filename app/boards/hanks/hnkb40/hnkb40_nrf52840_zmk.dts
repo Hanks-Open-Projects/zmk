@@ -41,7 +41,14 @@ RC(0,0)     RC(0,5) RC(0,8) RC(0,13) RC(0,16) RC(0,21) RC(0,24) RC(0,29) RC(0,32
         >;
     };
 
-    /* kscan is defined as a child of spi0 below */
+    kscan0: kscan {
+        compatible = "zmk,kscan-595a";
+        wakeup-source;
+        hc595a-ser-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+        hc595a-sck-gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
+        key-sense-gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;
+        hc595a-count = <6>;
+    };
 
     leds {
         compatible = "gpio-leds";
@@ -85,26 +92,9 @@ RC(0,0)     RC(0,5) RC(0,8) RC(0,13) RC(0,16) RC(0,21) RC(0,24) RC(0,29) RC(0,32
     status = "okay";
 };
 
-/* SPI0: Used for 74HC595 shift registers (matrix columns) */
+/* SPI0 not used - using GPIO bit-banging for 74HC595A */
 &spi0 {
-    compatible = "nordic,nrf-spim";
-    status = "okay";
-    pinctrl-0 = <&spi0_default>;
-    pinctrl-1 = <&spi0_sleep>;
-    pinctrl-names = "default", "sleep";
-
-    kscan0: kscan@0 {
-        compatible = "zmk,kscan-gpio-595-spi";
-        reg = <0>;
-        spi-max-frequency = <1000000>;  /* 1 MHz */
-        wakeup-source;
-
-        /* Key sense input - active LOW with pull-up */
-        sense-gpios = <&gpio1 15 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-
-        /* 6x 74HC595 = 48 columns */
-        num-columns = <48>;
-    };
+    status = "disabled";
 };
 
 &spi3 {

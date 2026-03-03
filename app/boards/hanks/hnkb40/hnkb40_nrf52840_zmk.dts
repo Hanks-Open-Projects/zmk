@@ -46,9 +46,9 @@ RC(0,0)     RC(0,5) RC(0,8) RC(0,13) RC(0,16) RC(0,21) RC(0,24) RC(0,29) RC(0,32
         wakeup-source;
 
         /* 74HC595 control pins - using direct GPIO for walking bit optimization */
+        /* Note: RCLK is tied to SCK on this board, so no separate latch pin needed */
         ser-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;   /* Serial data (SER/DS) */
         sck-gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;   /* Shift clock (SRCLK/SHCP) */
-        rclk-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;   /* Latch clock (RCLK/STCP) */
 
         /* Key sense input */
         sense-gpios = <&gpio1 15 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;

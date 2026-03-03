@@ -53,4 +53,4 @@ west build -p -b hnkb40/nrf52840/zmk
 
 ## Flashing
 
-The board uses UF2 bootloader. Copy the generated `zmk.uf2` file to the mounted drive when in bootloader mode.
+The board uses UF2 bootloader. Copy the generated `zmk.uf2` file to the mounted drive when in bootloader mode.bb

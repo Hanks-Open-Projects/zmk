@@ -11,3 +11,5 @@ outputs:
   - usb
   - ble
 url: https://hnkb40
+# Enable USB logging for debugging (remove when done)
+snippet: zmk-usb-logging

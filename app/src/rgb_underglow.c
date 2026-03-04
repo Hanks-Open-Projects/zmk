@@ -131,8 +131,20 @@ static struct led_rgb hsb_to_rgb(struct zmk_led_hsb hsb) {
 }
 
 static void zmk_rgb_underglow_effect_solid(void) {
+    /* TEST: R-G-B sequence pattern for hardware verification */
+    const uint8_t brightness = 128; /* Medium brightness */
     for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
-        pixels[i] = hsb_to_rgb(hsb_scale_min_max(state.color));
+        switch (i % 3) {
+        case 0: /* Red */
+            pixels[i] = (struct led_rgb){.r = brightness, .g = 0, .b = 0};
+            break;
+        case 1: /* Green */
+            pixels[i] = (struct led_rgb){.r = 0, .g = brightness, .b = 0};
+            break;
+        case 2: /* Blue */
+            pixels[i] = (struct led_rgb){.r = 0, .g = 0, .b = brightness};
+            break;
+        }
     }
 }
 

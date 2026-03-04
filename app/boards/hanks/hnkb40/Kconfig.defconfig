@@ -19,7 +19,7 @@ endif
 if ZMK_STUDIO
 
 config ZMK_STUDIO_LOCKING
-    default y
+    default n
 
 endif # ZMK_STUDIO
 

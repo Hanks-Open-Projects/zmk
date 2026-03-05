@@ -191,6 +191,19 @@ static void zmk_rgb_underglow_tick(struct k_work *work) {
         break;
     }
 
+    /* Override with fixed color blocks — 3 LEDs per color */
+    {
+        static const struct led_rgb colors[] = {
+            {.r = 255, .g = 0,   .b = 0},    /* Red */
+            {.r = 0,   .g = 255, .b = 0},    /* Green */
+            {.r = 0,   .g = 0,   .b = 255},  /* Blue */
+        };
+        int num_colors = sizeof(colors) / sizeof(colors[0]);
+        for (int i = 0; i < STRIP_NUM_PIXELS; i++) {
+            pixels[i] = colors[(i / 3) % num_colors];
+        }
+    }
+
     int err = led_strip_update_rgb(led_strip, pixels, STRIP_NUM_PIXELS);
     if (err < 0) {
         LOG_ERR("Failed to update the RGB strip (%d)", err);

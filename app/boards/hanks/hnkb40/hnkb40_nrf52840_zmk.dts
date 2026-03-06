@@ -79,6 +79,21 @@
             ;
     };
 
+    /*
+     * LED Map: 50 LEDs total
+     * 0-2:   Indicators (caps lock, BT status, layer status)
+     * 3-44:  Per-key (42 keys)
+     * 45-49: Underglow
+     */
+    led-map {
+        compatible = "zmk,led-map";
+        led-strip = <&led_strip>;
+        /* LED array maps defined in hnkb40_led_map.h */
+        caps-lock-led-index = <0>;
+        bt-status-led-index = <1>;
+        layer-status-led-index = <2>;
+    };
+
     default_transform: keymap_transform_0 {
         compatible = "zmk,matrix-transform";
         columns = <48>;

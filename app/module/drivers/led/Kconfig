@@ -1,0 +1,64 @@
+# Copyright (c) 2024 The ZMK Contributors
+# SPDX-License-Identifier: MIT
+
+menuconfig ZMK_LED_MAP
+    bool "Unified LED Map (per-key RGB + indicators)"
+    depends on ZMK_RGB_UNDERGLOW
+    select ZMK_LOW_PRIORITY_WORK_QUEUE
+    help
+      Enable unified LED map support for per-key RGB effects,
+      indicator LEDs, and underglow on a single LED strip.
+      When enabled, this module takes ownership of the LED strip
+      and performs a single update per tick.
+
+if ZMK_LED_MAP
+
+config ZMK_LED_MAP_PER_KEY_BRT_MAX
+    int "Per-key LED maximum brightness in percent"
+    range 0 100
+    default 10
+
+config ZMK_LED_MAP_INDICATOR_BRT_MAX
+    int "Indicator LED maximum brightness in percent"
+    range 0 100
+    default 10
+
+config ZMK_LED_MAP_FADE_STEP
+    int "Reactive keypress fade step per tick"
+    range 1 50
+    default 5
+
+config ZMK_LED_MAP_HUE_START
+    int "Per-key initial hue (0-359)"
+    range 0 359
+    default 0
+
+config ZMK_LED_MAP_SAT_START
+    int "Per-key initial saturation (0-100)"
+    range 0 100
+    default 100
+
+config ZMK_LED_MAP_BRT_START
+    int "Per-key initial brightness (0-100)"
+    range 0 100
+    default 10
+
+config ZMK_LED_MAP_SPD_START
+    int "Per-key initial animation speed (1-5)"
+    range 1 5
+    default 3
+
+config ZMK_LED_MAP_EFF_START
+    int "Per-key initial effect (0=OFF,1=SOLID,2=BREATHE,3=SPECTRUM,4=SWIRL,5=REACTIVE,6=REACTIVE_FADE)"
+    range 0 6
+    default 6
+
+config ZMK_LED_MAP_ON_START
+    bool "Per-key LEDs on at startup"
+    default y
+
+config ZMK_LED_MAP_INDICATORS_ON_START
+    bool "Indicator LEDs on at startup"
+    default y
+
+endif # ZMK_LED_MAP

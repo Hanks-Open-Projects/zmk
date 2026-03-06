@@ -69,13 +69,6 @@ jobs:
 
             let error = false;
 
-            // Debug: verify DTS binding file exists
-            try {
-              const bindingPath = 'app/dts/bindings/zmk,led-map.yaml';
-              console.log(`Binding exists: ${fs.existsSync(bindingPath)}`);
-              if (fs.existsSync(bindingPath)) console.log(fs.readFileSync(bindingPath, 'utf8'));
-            } catch (e) { console.log('Debug:', e.message); }
-
             for (const shieldArgs of buildShieldArgs) {
               try {
                 console.log(`::group::${{ matrix.board}} ${shieldArgs.shield} Build`)
@@ -87,13 +80,6 @@ jobs:
                 console.error(`::error::Failed to build ${{ matrix.board }} ${shieldArgs.shield} ${shieldArgs['cmake-args']}`);
                 if (e.stdout) console.error(e.stdout.toString());
                 if (e.stderr) console.error(e.stderr.toString());
-                // Debug: dump led_map macros from generated header
-                try {
-                  const dth = fs.readFileSync('build/zephyr/include/generated/zephyr/devicetree_generated.h', 'utf8');
-                  const lines = dth.split('\n').filter(l => l.includes('led_map') || l.includes('led_DASH_map'));
-                  console.error('=== DT macros for led_map ===');
-                  console.error(lines.join('\n'));
-                } catch (e2) { console.error('Could not read DT header'); }
                 error = true;
               } finally {
                 console.log('::endgroup::');

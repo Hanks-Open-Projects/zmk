@@ -19,7 +19,7 @@ LED Index   Function
 45-49       Underglow
 ```
 
-All mappings are configurable via the `led_map` node in the DTS file.
+Array mappings are defined in `app/include/hnkb40_led_map.h`. Indicator LED indices are configurable via the DTS `led-map` node.
 
 ## Architecture
 
@@ -133,16 +133,10 @@ Underglow controls still use `&rgb_ug RGB_TOG`, `RGB_HUI`, etc.
 ## DTS Configuration
 
 ```dts
-led_map: led_map {
+led-map {
     compatible = "zmk,led-map";
     led-strip = <&led_strip>;
-    underglow-map = <45 46 47 48 49>;
-    per-key-map = <
-         3  4  5  6  7  8  9 10 11 12 13 14    /* Row 0: 12 keys */
-        15 16 17 18 19 20 21 22 23 24 25        /* Row 1: 11 keys */
-        26 27 28 29 30 31 32 33 34 35 36        /* Row 2: 11 keys */
-        37 38 39 40 41 42 43 44                 /* Row 3: 8 keys  */
-    >;
+    /* LED array maps defined in hnkb40_led_map.h */
     caps-lock-led-index = <0>;
     bt-status-led-index = <1>;
     layer-status-led-index = <2>;
@@ -157,23 +151,24 @@ All properties except `led-strip` are optional. Omit an indicator property to di
 app/
 ├── module/
 │   ├── drivers/led/
-│   │   ├── led_map.c              # Core driver (pixel buffer, rendering, events)
 │   │   ├── Kconfig                # LED map config options
-│   │   └── CMakeLists.txt         # Build file
+│   │   └── CMakeLists.txt
 │   ├── include/zmk/
 │   │   └── led_map.h              # Public API
 │   └── dts/bindings/
 │       ├── led/zmk,led-map.yaml   # DTS binding for led_map node
 │       └── behaviors/zmk,behavior-led-map.yaml
 ├── src/
+│   ├── led_map.c                      # Core driver (pixel buffer, rendering, events)
 │   ├── behaviors/behavior_led_map.c   # Keymap behavior
 │   └── rgb_underglow.c               # Modified: state APIs + skip strip update
 ├── include/
+│   ├── hnkb40_led_map.h              # Board-specific LED array mappings
 │   ├── zmk/rgb_underglow.h           # Modified: render state struct
 │   └── dt-bindings/zmk/led_map.h     # DT binding constants
 ├── dts/behaviors/led_map.dtsi         # Behavior node
 └── boards/hanks/hnkb40/
-    ├── hnkb40_nrf52840_zmk.dts        # LED map node added
+    ├── hnkb40_nrf52840_zmk.dts        # LED map DTS node (indicators)
     ├── hnkb40_nrf52840_zmk_defconfig  # LED map Kconfig enabled
     └── hnkb40.keymap                  # LED map bindings on layer 2
 ```

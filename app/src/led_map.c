@@ -857,8 +857,13 @@ static int led_map_settings_set(const char *name, size_t len,
     return -ENOENT;
 }
 
+static int led_map_settings_commit(void) {
+    led_map_check_timer();
+    return 0;
+}
+
 SETTINGS_STATIC_HANDLER_DEFINE(led_map, "led_map", NULL,
-                                led_map_settings_set, NULL, NULL);
+                                led_map_settings_set, led_map_settings_commit, NULL);
 
 static void led_map_save_work_handler(struct k_work *work) {
     settings_save_one("led_map/state", &lm_state, sizeof(lm_state));
@@ -1100,12 +1105,10 @@ static int led_map_init(void) {
         LOG_ERR("Ext power device not ready");
         return -ENODEV;
     }
-    ext_power_enable(ext_power_dev);
 #endif
 
-    /* Start the unified tick timer */
-    k_timer_start(&led_map_timer, K_MSEC(2), K_MSEC(50));
-    led_map_timer_running = true;
+    /* Start timer; settings commit handler will re-check after saved state loads */
+    led_map_start_timer();
 
     LOG_INF("LED map initialized: %d underglow, %d per-key, %d total LEDs",
             UNDERGLOW_COUNT, PER_KEY_COUNT, TOTAL_LEDS);

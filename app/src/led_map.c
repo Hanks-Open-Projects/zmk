@@ -28,6 +28,11 @@
 #define CAPS_LOCK_BIT HID_USAGE_LED_CAPS_LOCK
 #endif
 
+#if DT_HAS_COMPAT_STATUS_OKAY(zmk_ext_power_generic)
+#include <drivers/ext_power.h>
+static const struct device *const ext_power_dev = DEVICE_DT_GET(DT_INST(0, zmk_ext_power_generic));
+#endif
+
 #if IS_ENABLED(CONFIG_ZMK_BLE)
 #include <zmk/ble.h>
 #include <zmk/events/ble_active_profile_changed.h>
@@ -705,12 +710,18 @@ static void led_map_stop_timer(void) {
         led_map_timer_running = false;
         memset(pixels, 0, sizeof(pixels));
         led_strip_update_rgb(led_strip_dev, pixels, TOTAL_LEDS);
+#if DT_HAS_COMPAT_STATUS_OKAY(zmk_ext_power_generic)
+        ext_power_disable(ext_power_dev);
+#endif
     }
 }
 
 static void led_map_start_timer(void) {
     if (!led_map_timer_running) {
-        k_timer_start(&led_map_timer, K_NO_WAIT, K_MSEC(50));
+#if DT_HAS_COMPAT_STATUS_OKAY(zmk_ext_power_generic)
+        ext_power_enable(ext_power_dev);
+#endif
+        k_timer_start(&led_map_timer, K_MSEC(2), K_MSEC(50));
         led_map_timer_running = true;
     }
 }
@@ -1084,8 +1095,16 @@ static int led_map_init(void) {
     k_work_init_delayable(&led_map_save_work, led_map_save_work_handler);
 #endif
 
+#if DT_HAS_COMPAT_STATUS_OKAY(zmk_ext_power_generic)
+    if (!device_is_ready(ext_power_dev)) {
+        LOG_ERR("Ext power device not ready");
+        return -ENODEV;
+    }
+    ext_power_enable(ext_power_dev);
+#endif
+
     /* Start the unified tick timer */
-    k_timer_start(&led_map_timer, K_NO_WAIT, K_MSEC(50));
+    k_timer_start(&led_map_timer, K_MSEC(2), K_MSEC(50));
     led_map_timer_running = true;
 
     LOG_INF("LED map initialized: %d underglow, %d per-key, %d total LEDs",

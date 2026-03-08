@@ -720,8 +720,14 @@ static void led_map_start_timer(void) {
     }
 }
 
+static bool led_map_ext_power_on;
+
 static void led_map_set_ext_power(bool on) {
 #if DT_HAS_COMPAT_STATUS_OKAY(zmk_ext_power_generic)
+    if (on == led_map_ext_power_on) {
+        return;
+    }
+    led_map_ext_power_on = on;
     if (on) {
         ext_power_enable(ext_power_dev);
     } else {
@@ -863,6 +869,11 @@ static int led_map_settings_set(const char *name, size_t len,
 }
 
 static int led_map_settings_commit(void) {
+    /* Sync ext_power tracking — ext_power's own settings handler may have
+     * changed the actual state during settings load */
+#if DT_HAS_COMPAT_STATUS_OKAY(zmk_ext_power_generic)
+    led_map_ext_power_on = ext_power_get(ext_power_dev) > 0;
+#endif
     led_map_check_timer();
     return 0;
 }

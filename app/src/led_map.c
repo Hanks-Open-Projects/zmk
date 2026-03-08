@@ -710,41 +710,46 @@ static void led_map_stop_timer(void) {
         led_map_timer_running = false;
         memset(pixels, 0, sizeof(pixels));
         led_strip_update_rgb(led_strip_dev, pixels, TOTAL_LEDS);
-#if DT_HAS_COMPAT_STATUS_OKAY(zmk_ext_power_generic)
-        ext_power_disable(ext_power_dev);
-#endif
     }
 }
 
 static void led_map_start_timer(void) {
     if (!led_map_timer_running) {
-#if DT_HAS_COMPAT_STATUS_OKAY(zmk_ext_power_generic)
-        ext_power_enable(ext_power_dev);
-#endif
         k_timer_start(&led_map_timer, K_MSEC(2), K_MSEC(50));
         led_map_timer_running = true;
     }
 }
 
+static void led_map_set_ext_power(bool on) {
+#if DT_HAS_COMPAT_STATUS_OKAY(zmk_ext_power_generic)
+    if (on) {
+        ext_power_enable(ext_power_dev);
+    } else {
+        ext_power_disable(ext_power_dev);
+    }
+#endif
+}
+
 static void led_map_check_timer(void) {
+    bool need_leds;
+
     /* Never stop the timer when USB powered */
     if (zmk_usb_is_powered()) {
-        led_map_start_timer();
-        return;
+        need_leds = true;
+    } else if (led_map_idle) {
+        need_leds = false;
+    } else {
+        struct zmk_rgb_underglow_render_state ug;
+        bool ug_on = (zmk_rgb_underglow_get_render_state(&ug) == 0 && ug.on);
+        need_leds = lm_state.per_key_on || lm_state.indicators_on || ug_on;
     }
 
-    if (led_map_idle) {
-        led_map_stop_timer();
-        return;
-    }
-
-    struct zmk_rgb_underglow_render_state ug;
-    bool ug_on = (zmk_rgb_underglow_get_render_state(&ug) == 0 && ug.on);
-
-    if (lm_state.per_key_on || lm_state.indicators_on || ug_on) {
+    if (need_leds) {
+        led_map_set_ext_power(true);
         led_map_start_timer();
     } else {
         led_map_stop_timer();
+        led_map_set_ext_power(false);
     }
 }
 
@@ -1107,7 +1112,9 @@ static int led_map_init(void) {
     }
 #endif
 
-    /* Start timer; settings commit handler will re-check after saved state loads */
+    /* Enable ext_power and start timer with defaults;
+     * settings commit handler will re-check after saved state loads */
+    led_map_set_ext_power(true);
     led_map_start_timer();
 
     LOG_INF("LED map initialized: %d underglow, %d per-key, %d total LEDs",

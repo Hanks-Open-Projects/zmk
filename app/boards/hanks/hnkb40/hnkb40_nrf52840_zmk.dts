@@ -79,6 +79,21 @@
             ;
     };
 
+    /*
+     * LED Map: 50 LEDs total
+     * 0-2:   Indicators (caps lock, BT status, layer status)
+     * 3-44:  Per-key (42 keys)
+     * 45-49: Underglow
+     */
+    led-map {
+        compatible = "zmk,led-map";
+        led-strip = <&led_strip>;
+        /* LED array maps defined in hnkb40_led_map.h */
+        caps-lock-led-index = <0>;
+        bt-status-led-index = <1>;
+        layer-status-led-index = <2>;
+    };
+
     default_transform: keymap_transform_0 {
         compatible = "zmk,matrix-transform";
         columns = <48>;
@@ -93,7 +108,6 @@ RC(0,0)     RC(0,5) RC(0,8) RC(0,13) RC(0,16) RC(0,21) RC(0,24) RC(0,29) RC(0,32
 
     kscan0: kscan {
         compatible = "zmk,kscan-595a";
-        wakeup-source;
         hc595a-ser-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
         hc595a-sck-gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
         key-sense-gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;
@@ -110,6 +124,7 @@ RC(0,0)     RC(0,5) RC(0,8) RC(0,13) RC(0,16) RC(0,21) RC(0,24) RC(0,29) RC(0,32
     // Node name must match original "EXT_POWER" label to preserve user settings.
     EXT_POWER {
         compatible = "zmk,ext-power-generic";
+        wakeup-source;
         control-gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;
     };
 

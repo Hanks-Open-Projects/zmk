@@ -83,7 +83,7 @@ static void kscan_595a_scan(struct k_work *work) {
         gpio_pin_set_dt(&config->sck_gpio, 0);
     }
 
-    k_work_schedule(&data->work, K_MSEC(10));
+    k_work_schedule(&data->work, K_MSEC(1));
 }
 
 static int kscan_595a_configure(const struct device *dev, kscan_callback_t callback) {

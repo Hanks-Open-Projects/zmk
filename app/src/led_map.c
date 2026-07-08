@@ -684,8 +684,15 @@ static void render_indicator_leds(void) {
         /* BT indicator: only active on boot or profile switch, not on USB.
          * Connected: solid for 3s then off.
          * Not connected: flick until idle timeout. */
-        if (indicator_cache.bt_changed_at > 0 &&
-            zmk_endpoint_get_selected().transport != ZMK_TRANSPORT_USB) {
+        /* bt_changed_at is only ever set on a non-split keyboard or the split
+         * central (the BLE-profile handler is host-state gated), so on a
+         * peripheral this block is inert and the central-only endpoint lookup
+         * must be compiled out. */
+        if (indicator_cache.bt_changed_at > 0
+#if LED_MAP_HAS_HOST_STATE
+            && zmk_endpoint_get_selected().transport != ZMK_TRANSPORT_USB
+#endif
+        ) {
             static const uint16_t bt_hues[] = {240, 120, 0, 60};
             uint8_t idx = indicator_cache.bt_profile_index % 4;
             struct zmk_led_hsb hsb = {.h = bt_hues[idx], .s = SAT_MAX, .b = BRT_MAX};

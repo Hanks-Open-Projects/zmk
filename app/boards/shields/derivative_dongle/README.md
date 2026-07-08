@@ -14,16 +14,16 @@ In ZMK, central vs peripheral is a **compile-time** decision. `app/CMakeLists.tx
 compiles the whole keymap / HID / behavior / endpoint stack only for
 central-or-standalone builds; a peripheral image doesn't even contain
 `keymap.c` or `hog.c`. So "dongle mode" is a different binary, not a runtime flag.
-Both roles are BLE *peripherals* though (host↔keyboard HID, or dongle↔keyboard
+Both roles are BLE _peripherals_ though (host↔keyboard HID, or dongle↔keyboard
 split), so the keyboard never needs `BT_CENTRAL` — which is what makes a future
 single-image build tractable.
 
 ## Builds (see `app/core-coverage.yml`)
 
-| Image | Target | Role |
-| --- | --- | --- |
-| Keyboard | `derivative-rev-a/nrf52840/zmk` + `derivative_peripheral` shield | split peripheral |
-| Dongle | `xiao_ble/nrf52840/zmk` + `derivative_dongle` shield | split central + HID |
+| Image    | Target                                                           | Role                |
+| -------- | ---------------------------------------------------------------- | ------------------- |
+| Keyboard | `derivative-rev-a/nrf52840/zmk` + `derivative_peripheral` shield | split peripheral    |
+| Dongle   | `xiao_ble/nrf52840/zmk` + `derivative_dongle` shield             | split central + HID |
 
 The dongle mirrors the keyboard's 48-key physical layout and matrix transform
 verbatim (`derivative_dongle.overlay`) so incoming key positions map to the same
@@ -44,7 +44,7 @@ To go back to standalone, reflash the keyboard with the plain
 ## Known limitations (Phase 0)
 
 - **RGB / LED map:** the physical strip is on the keyboard (peripheral), but the
-  keymap runs on the dongle (central). `ZMK_LED_MAP` is intentionally *off* on
+  keymap runs on the dongle (central). `ZMK_LED_MAP` is intentionally _off_ on
   the dongle, and the shared keymap's `&led_map` bindings compile to `&trans`
   there. Keymap-driven LED changes therefore do **not** reach the strip in
   dongle mode yet. The strip still runs its default effect. Relaying LED/underglow

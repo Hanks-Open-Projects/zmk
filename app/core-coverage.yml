@@ -25,7 +25,11 @@ include:
   # Dongle mode (Phase 1 probe): single image with BOTH the standalone HID stack
   # and the split-peripheral stack compiled in. Compile-only milestone; runtime
   # role gating is layered on afterward.
+  # ZMK Studio is force-off here: the board defconfig enables it for the standalone
+  # experience, but a split-peripheral context does not compile the Studio subsystem
+  # sources, so the force-compiled keymap/behaviors would reference unlinked Studio
+  # symbols. A peripheral cannot run Studio anyway.
   - board: derivative-rev-a/nrf52840/zmk
     shield: derivative_peripheral
-    cmake-args: "-DCONFIG_ZMK_DERIVATIVE_DUAL_ROLE=y"
+    cmake-args: "-DCONFIG_ZMK_DERIVATIVE_DUAL_ROLE=y -DCONFIG_ZMK_STUDIO=n"
     nickname: "dualrole"

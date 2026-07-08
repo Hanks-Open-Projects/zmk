@@ -3,7 +3,7 @@ id: derivative_dongle
 name: Derivative Dongle
 type: shield
 url: https://github.com/Hanks-Open-Projects/zmk
+# BLE-only central: intentionally no "keys" feature so CI's board-changes
+# matrix does not auto-build it against non-BLE XIAOs (xiao_rp2040,
+# seeeduino_xiao, ...). It is built explicitly on xiao_ble via core-coverage.yml.
 requires: [seeed_xiao]
-features:
-  - keys
-  - studio

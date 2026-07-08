@@ -74,9 +74,30 @@ int zmk_derivative_role_set_and_reboot(enum zmk_derivative_role role) {
     return 0;
 }
 
+#if IS_ENABLED(CONFIG_LOG)
+/*
+ * Re-log the resolved role a few times after boot. USB CDC logging (ZMK_USB_LOGGING)
+ * only reaches a terminal once the port is enumerated and opened, which can easily
+ * take longer than the single boot log line survives; repeating for ~30s gives time
+ * to attach a serial monitor and still see the role.
+ */
+static int role_log_count;
+static void role_log_work_cb(struct k_work *work);
+static K_WORK_DELAYABLE_DEFINE(role_log_work, role_log_work_cb);
+static void role_log_work_cb(struct k_work *work) {
+    LOG_INF("Derivative dual-role: active role %d (default %d)", current_role, ROLE_DEFAULT);
+    if (++role_log_count < 6) {
+        k_work_reschedule(&role_log_work, K_SECONDS(5));
+    }
+}
+#endif /* IS_ENABLED(CONFIG_LOG) */
+
 static int derivative_role_init(void) {
     LOG_INF("Derivative dual-role image: booting as role %d (default %d)", current_role,
             ROLE_DEFAULT);
+#if IS_ENABLED(CONFIG_LOG)
+    k_work_schedule(&role_log_work, K_SECONDS(2));
+#endif
     return 0;
 }
 

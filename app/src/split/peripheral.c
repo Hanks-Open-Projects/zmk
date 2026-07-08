@@ -18,6 +18,10 @@
 #include <zmk/events/sensor_event.h>
 #include <zmk/events/battery_state_changed.h>
 
+#if IS_ENABLED(CONFIG_ZMK_DERIVATIVE_DUAL_ROLE)
+#include <zmk/derivative_role.h>
+#endif
+
 #if IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_HID_INDICATORS)
 #include <zmk/events/hid_indicators_changed.h>
 #endif
@@ -147,6 +151,13 @@ SYS_INIT(peripheral_init, APPLICATION, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);
 
 int split_peripheral_listener(const zmk_event_t *eh) {
     LOG_DBG("");
+#if IS_ENABLED(CONFIG_ZMK_DERIVATIVE_DUAL_ROLE)
+    // Dual-role kscan gate: in the standalone role there is no central to forward to;
+    // the local keymap (see keymap_listener) handles these events instead.
+    if (zmk_derivative_role_get() == ZMK_DERIVATIVE_ROLE_STANDALONE) {
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+#endif
     const struct zmk_position_state_changed *pos_ev;
     if ((pos_ev = as_zmk_position_state_changed(eh)) != NULL) {
         struct zmk_split_transport_peripheral_event ev = {

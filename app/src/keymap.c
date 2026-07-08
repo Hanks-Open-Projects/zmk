@@ -23,6 +23,10 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/events/layer_state_changed.h>
 #include <zmk/events/sensor_event.h>
 
+#if IS_ENABLED(CONFIG_ZMK_DERIVATIVE_DUAL_ROLE)
+#include <zmk/derivative_role.h>
+#endif
+
 static zmk_keymap_layers_state_t _zmk_keymap_layer_locks = 0;
 static zmk_keymap_layers_state_t _zmk_keymap_layer_state = 0;
 static zmk_keymap_layer_id_t _zmk_keymap_layer_default = 0;
@@ -815,6 +819,15 @@ int zmk_keymap_sensor_event(uint8_t sensor_index,
 #endif /* ZMK_KEYMAP_HAS_SENSORS */
 
 int keymap_listener(const zmk_event_t *eh) {
+#if IS_ENABLED(CONFIG_ZMK_DERIVATIVE_DUAL_ROLE)
+    // Dual-role kscan gate: in the dongle-peripheral role, key/sensor events are
+    // forwarded to the central (see split_peripheral_listener) instead of being
+    // processed by the local keymap. Both listeners are compiled into this image, so
+    // exactly one must act per boot.
+    if (zmk_derivative_role_get() == ZMK_DERIVATIVE_ROLE_DONGLE_PERIPHERAL) {
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+#endif
     const struct zmk_position_state_changed *pos_ev;
     if ((pos_ev = as_zmk_position_state_changed(eh)) != NULL) {
         return zmk_keymap_position_state_changed(pos_ev->source, pos_ev->position, pos_ev->state,

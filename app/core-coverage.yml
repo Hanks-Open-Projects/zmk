@@ -22,3 +22,10 @@ include:
   - board: xiao_ble/nrf52840/zmk
     shield: derivative_dongle
     nickname: "dongle"
+  # Dongle mode (Phase 1 probe): single image with BOTH the standalone HID stack
+  # and the split-peripheral stack compiled in. Compile-only milestone; runtime
+  # role gating is layered on afterward.
+  - board: derivative-rev-a/nrf52840/zmk
+    shield: derivative_peripheral
+    cmake-args: "-DCONFIG_ZMK_DERIVATIVE_DUAL_ROLE=y"
+    nickname: "dualrole"

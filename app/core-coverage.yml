@@ -33,3 +33,9 @@ include:
     shield: derivative_peripheral
     cmake-args: "-DCONFIG_ZMK_DERIVATIVE_DUAL_ROLE=y -DCONFIG_ZMK_STUDIO=n"
     nickname: "dualrole"
+  # Forced dongle-peripheral role: same image, boots straight into the dongle role.
+  # Used to validate the runtime gates on hardware before the role-switch UX exists.
+  - board: derivative-rev-a/nrf52840/zmk
+    shield: derivative_peripheral
+    cmake-args: "-DCONFIG_ZMK_DERIVATIVE_DUAL_ROLE=y -DCONFIG_ZMK_STUDIO=n -DCONFIG_ZMK_DERIVATIVE_DEFAULT_ROLE_DONGLE=y"
+    nickname: "dualrole-dongle"

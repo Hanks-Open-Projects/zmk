@@ -92,6 +92,9 @@ if ((NOT CONFIG_ZMK_SPLIT) OR CONFIG_ZMK_SPLIT_ROLE_CENTRAL OR CONFIG_ZMK_DERIVA
   endif()
 endif()
 
+# Boot-time role state for the single-image dual-role build (Phase 1).
+target_sources_ifdef(CONFIG_ZMK_DERIVATIVE_DUAL_ROLE app PRIVATE src/derivative_role.c)
+
 target_sources_ifdef(CONFIG_ZMK_RGB_UNDERGLOW app PRIVATE src/behaviors/behavior_rgb_underglow.c)
 target_sources_ifdef(CONFIG_ZMK_LED_MAP app PRIVATE src/behaviors/behavior_led_map.c)
 target_sources_ifdef(CONFIG_ZMK_BACKLIGHT app PRIVATE src/behaviors/behavior_backlight.c)

@@ -41,14 +41,25 @@ bindings. The keymap itself is shared — both images `#include`
 To go back to standalone, reflash the keyboard with the plain
 `derivative-rev-a/nrf52840/zmk` image.
 
+## RGB / LED map in dongle mode
+
+The per-key RGB / LED map works on the keyboard while it is a peripheral:
+
+- The `led_map` behavior is `GLOBAL`, so effect controls (`&led_map …`) pressed
+  through the dongle are relayed to the keyboard's strip.
+- Reactive per-key effects render locally from the keyboard's own kscan.
+- The caps-lock indicator is propagated from the dongle via
+  `CONFIG_ZMK_SPLIT_PERIPHERAL_HID_INDICATORS`.
+
+`ZMK_LED_MAP` stays disabled on the **dongle** itself (it has no strip), so the
+shared keymap's `&led_map` bindings compile to `&trans` there.
+
 ## Known limitations (Phase 0)
 
-- **RGB / LED map:** the physical strip is on the keyboard (peripheral), but the
-  keymap runs on the dongle (central). `ZMK_LED_MAP` is intentionally _off_ on
-  the dongle, and the shared keymap's `&led_map` bindings compile to `&trans`
-  there. Keymap-driven LED changes therefore do **not** reach the strip in
-  dongle mode yet. The strip still runs its default effect. Relaying LED/underglow
-  state central→peripheral is future work.
+- **BT-status / layer-status indicator LEDs:** these read central-side state
+  (host BLE profile, active layer) that is not relayed to the peripheral, so
+  those two indicator LEDs stay off in dongle mode. Per-key effects and the
+  caps-lock indicator are unaffected.
 - **No boot-time switching yet:** role is chosen by which image you flash.
   Single-image boot-time selection is Phase 1.
 - **Battery:** the dongle is USB-powered; the keyboard reports its own battery

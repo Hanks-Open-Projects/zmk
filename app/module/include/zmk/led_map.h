@@ -23,4 +23,6 @@ int zmk_led_map_change_sat(int direction);
 int zmk_led_map_change_brt(int direction);
 int zmk_led_map_change_spd(int direction);
 
+int zmk_led_map_change_idle_timeout(int direction);
+
 int zmk_led_map_show_battery(void);

@@ -116,6 +116,16 @@ static const struct behavior_parameter_value_metadata no_arg_values[] = {
         .type = BEHAVIOR_PARAMETER_VALUE_TYPE_VALUE,
         .value = LED_MAP_SUB_EFR_CMD,
     },
+    {
+        .display_name = "Idle Timeout Up",
+        .type = BEHAVIOR_PARAMETER_VALUE_TYPE_VALUE,
+        .value = LED_MAP_IDLE_UP_CMD,
+    },
+    {
+        .display_name = "Idle Timeout Down",
+        .type = BEHAVIOR_PARAMETER_VALUE_TYPE_VALUE,
+        .value = LED_MAP_IDLE_DN_CMD,
+    },
 };
 
 static const struct behavior_parameter_metadata_set no_args_set = {
@@ -177,6 +187,10 @@ static int on_keymap_binding_pressed(struct zmk_behavior_binding *binding,
         return zmk_led_map_cycle_sub_effect(1);
     case LED_MAP_SUB_EFR_CMD:
         return zmk_led_map_cycle_sub_effect(-1);
+    case LED_MAP_IDLE_UP_CMD:
+        return zmk_led_map_change_idle_timeout(1);
+    case LED_MAP_IDLE_DN_CMD:
+        return zmk_led_map_change_idle_timeout(-1);
     }
 
     return -ENOTSUP;

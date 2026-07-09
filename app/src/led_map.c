@@ -17,6 +17,7 @@
 #include <zmk/event_manager.h>
 #include <zmk/events/position_state_changed.h>
 #include <zmk/battery.h>
+#include <zmk/activity.h>
 #include <zmk/keymap.h>
 #include <zmk/rgb_underglow.h>
 #include <zmk/workqueue.h>
@@ -115,6 +116,11 @@ enum per_key_effect {
 #define SAT_MAX 100
 #define BRT_MAX 100
 
+/* Idle timeout adjustment: 30s..120s in 15s steps (7 levels). */
+#define IDLE_TIMEOUT_MIN_MS 30000
+#define IDLE_TIMEOUT_MAX_MS 120000
+#define IDLE_TIMEOUT_STEP_MS 15000
+
 /* Underglow effect indices (must match rgb_underglow.c enum) */
 #define UG_EFFECT_SOLID 0
 #define UG_EFFECT_BREATHE 1
@@ -143,6 +149,7 @@ struct led_map_state {
     uint8_t animation_speed;
     bool per_key_on;
     bool indicators_on;
+    uint32_t idle_timeout_ms;
 };
 
 static struct led_map_state lm_state;
@@ -921,6 +928,9 @@ static int led_map_settings_commit(void) {
     led_map_ext_power_on = ext_power_get(ext_power_dev) > 0;
 #endif
     led_map_check_timer();
+    /* Apply the persisted idle timeout to the core activity subsystem. */
+    zmk_activity_set_idle_timeout(
+        CLAMP(lm_state.idle_timeout_ms, IDLE_TIMEOUT_MIN_MS, IDLE_TIMEOUT_MAX_MS));
     return 0;
 }
 
@@ -1134,6 +1144,19 @@ int zmk_led_map_change_spd(int direction) {
     return led_map_save_state();
 }
 
+int zmk_led_map_change_idle_timeout(int direction) {
+    int32_t t = (int32_t)lm_state.idle_timeout_ms + (direction * IDLE_TIMEOUT_STEP_MS);
+    t = CLAMP(t, IDLE_TIMEOUT_MIN_MS, IDLE_TIMEOUT_MAX_MS);
+    lm_state.idle_timeout_ms = (uint32_t)t;
+    zmk_activity_set_idle_timeout(lm_state.idle_timeout_ms);
+
+    /* Map current level to 0-100 for the red->purple adjustment indicator. */
+    uint8_t level = (uint8_t)((t - IDLE_TIMEOUT_MIN_MS) * 100 /
+                              (IDLE_TIMEOUT_MAX_MS - IDLE_TIMEOUT_MIN_MS));
+    led_map_show_adjust(level);
+    return led_map_save_state();
+}
+
 int zmk_led_map_show_battery(void) {
     indicator_cache.bat_requested_at = k_uptime_get();
     return 0;
@@ -1159,6 +1182,7 @@ static int led_map_init(void) {
         .animation_speed = CONFIG_ZMK_LED_MAP_SPD_START,
         .per_key_on = IS_ENABLED(CONFIG_ZMK_LED_MAP_ON_START),
         .indicators_on = IS_ENABLED(CONFIG_ZMK_LED_MAP_INDICATORS_ON_START),
+        .idle_timeout_ms = CONFIG_ZMK_IDLE_TIMEOUT,
     };
 
     pk_animation_step = 0;
@@ -1194,6 +1218,10 @@ static int led_map_init(void) {
      * settings commit handler will re-check after saved state loads */
     led_map_set_ext_power(true);
     led_map_start_timer();
+
+    /* Apply the default idle timeout; when CONFIG_SETTINGS is enabled the
+     * commit handler overrides this with the persisted value after load. */
+    zmk_activity_set_idle_timeout(lm_state.idle_timeout_ms);
 
     LOG_INF("LED map initialized: %d underglow, %d per-key, %d total LEDs", UNDERGLOW_COUNT,
             PER_KEY_COUNT, TOTAL_LEDS);

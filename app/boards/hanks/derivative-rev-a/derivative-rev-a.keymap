@@ -88,14 +88,14 @@
 
             // Per-key LED controls
             // | --- | --- | --- | --- | --- | --- |
-            // | TO(0) | HUI | SAI | SPI | BRI | EFF | SUB_EFF | --- | --- | --- | --- | --- |
-            // | --- | HUD | SAD | SPD | BRD | EFR | SUB_EFR | --- | --- | --- | --- |
+            // | TO(0) | HUI | SAI | SPI | BRI | EFF | SUB_EFF | IDLE_UP | --- | --- | --- | --- |
+            // | --- | HUD | SAD | SPD | BRD | EFR | SUB_EFR | IDLE_DN | --- | --- | --- |
             // | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
             // | --- | --- | --- | --- | --- | --- | --- | TOG |
             bindings = <
                 &trans  &trans  &trans  &trans  &trans  &trans
-                &to DEFAULT  &led_map LED_MAP_HUI  &led_map LED_MAP_SAI  &led_map LED_MAP_SPI  &led_map LED_MAP_BRI  &led_map LED_MAP_EFF  &led_map LED_MAP_SUB_EFF  &trans  &trans  &trans  &trans  &trans
-                &trans  &led_map LED_MAP_HUD  &led_map LED_MAP_SAD  &led_map LED_MAP_SPD  &led_map LED_MAP_BRD  &led_map LED_MAP_EFR  &led_map LED_MAP_SUB_EFR  &trans  &trans  &trans  &trans
+                &to DEFAULT  &led_map LED_MAP_HUI  &led_map LED_MAP_SAI  &led_map LED_MAP_SPI  &led_map LED_MAP_BRI  &led_map LED_MAP_EFF  &led_map LED_MAP_SUB_EFF  &led_map LED_MAP_IDLE_UP  &trans  &trans  &trans  &trans
+                &trans  &led_map LED_MAP_HUD  &led_map LED_MAP_SAD  &led_map LED_MAP_SPD  &led_map LED_MAP_BRD  &led_map LED_MAP_EFR  &led_map LED_MAP_SUB_EFR  &led_map LED_MAP_IDLE_DN  &trans  &trans  &trans
                 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans  &trans
                 &trans  &trans  &trans  &trans  &trans  &trans  &trans  &led_map LED_MAP_TOG
             >;

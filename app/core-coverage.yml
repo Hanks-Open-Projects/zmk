@@ -39,9 +39,8 @@ include:
     shield: derivative_peripheral
     cmake-args: "-DCONFIG_ZMK_DERIVATIVE_DUAL_ROLE=y -DCONFIG_ZMK_STUDIO=n -DCONFIG_ZMK_DERIVATIVE_DEFAULT_ROLE_DONGLE=y"
     nickname: "dualrole-dongle"
-  # Forced dongle role + USB CDC serial logging, for hardware bring-up: flash this,
-  # open the COM port at 115200, and watch the resolved role / connection events.
-  - board: derivative-rev-a/nrf52840/zmk
-    shield: derivative_peripheral
-    cmake-args: "-DCONFIG_ZMK_DERIVATIVE_DUAL_ROLE=y -DCONFIG_ZMK_STUDIO=n -DCONFIG_ZMK_DERIVATIVE_DEFAULT_ROLE_DONGLE=y -DCONFIG_ZMK_USB_LOGGING=y -DCONFIG_ZMK_LOG_LEVEL_INF=y"
-    nickname: "dualrole-dongle-log"
+  # NOTE: a USB-serial-logging variant was attempted here with CONFIG_ZMK_USB_LOGGING,
+  # but the split-peripheral role force-disables ZMK_USB (and thus the USB device
+  # stack), which ZMK_USB_LOGGING requires -- Zephyr aborts on the unmet-dependency
+  # Kconfig warnings. Serial logging in the dual-role image needs the USB device stack
+  # + a CDC-ACM console node wired up independently of ZMK_USB; deferred as a follow-up.

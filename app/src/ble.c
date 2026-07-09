@@ -34,6 +34,9 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/ble.h>
 #include <zmk/keys.h>
 #include <zmk/split/bluetooth/uuid.h>
+#if IS_ENABLED(CONFIG_ZMK_DERIVATIVE_DUAL_ROLE)
+#include <zmk/derivative_role.h>
+#endif
 #include <zmk/event_manager.h>
 #include <zmk/events/ble_active_profile_changed.h>
 
@@ -175,6 +178,15 @@ bool zmk_ble_profile_is_connected(uint8_t index) {
     advertising_status = ZMK_ADV_CONN;
 
 int update_advertising(void) {
+#if IS_ENABLED(CONFIG_ZMK_DERIVATIVE_DUAL_ROLE)
+    // Dual-role advertising gate: only the standalone role advertises the HID (HOG)
+    // service. In the dongle-peripheral role the split service is advertised instead
+    // (see split/bluetooth/peripheral.c), so suppress HOG advertising entirely. This is
+    // the single choke point for all HOG advertising starts.
+    if (zmk_derivative_role_get() != ZMK_DERIVATIVE_ROLE_STANDALONE) {
+        return 0;
+    }
+#endif
     int err = 0;
     bt_addr_le_t *addr;
     struct bt_conn *conn;

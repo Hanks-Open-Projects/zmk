@@ -15,3 +15,32 @@ include:
     snippet: studio-rpc-usb-uart
     cmake-args: "-DCONFIG_ZMK_STUDIO=y"
     nickname: "studio"
+  # Dongle mode (Phase 0): keyboard as split peripheral + XIAO nRF52840 central.
+  - board: derivative-rev-a/nrf52840/zmk
+    shield: derivative_peripheral
+    nickname: "peripheral"
+  - board: xiao_ble/nrf52840/zmk
+    shield: derivative_dongle
+    nickname: "dongle"
+  # Dongle mode (Phase 1 probe): single image with BOTH the standalone HID stack
+  # and the split-peripheral stack compiled in. Compile-only milestone; runtime
+  # role gating is layered on afterward.
+  # ZMK Studio is force-off here: the board defconfig enables it for the standalone
+  # experience, but a split-peripheral context does not compile the Studio subsystem
+  # sources, so the force-compiled keymap/behaviors would reference unlinked Studio
+  # symbols. A peripheral cannot run Studio anyway.
+  - board: derivative-rev-a/nrf52840/zmk
+    shield: derivative_peripheral
+    cmake-args: "-DCONFIG_ZMK_DERIVATIVE_DUAL_ROLE=y -DCONFIG_ZMK_STUDIO=n"
+    nickname: "dualrole"
+  # Forced dongle-peripheral role: same image, boots straight into the dongle role.
+  # Used to validate the runtime gates on hardware before the role-switch UX exists.
+  - board: derivative-rev-a/nrf52840/zmk
+    shield: derivative_peripheral
+    cmake-args: "-DCONFIG_ZMK_DERIVATIVE_DUAL_ROLE=y -DCONFIG_ZMK_STUDIO=n -DCONFIG_ZMK_DERIVATIVE_DEFAULT_ROLE_DONGLE=y"
+    nickname: "dualrole-dongle"
+  # NOTE: a USB-serial-logging variant was attempted here with CONFIG_ZMK_USB_LOGGING,
+  # but the split-peripheral role force-disables ZMK_USB (and thus the USB device
+  # stack), which ZMK_USB_LOGGING requires -- Zephyr aborts on the unmet-dependency
+  # Kconfig warnings. Serial logging in the dual-role image needs the USB device stack
+  # + a CDC-ACM console node wired up independently of ZMK_USB; deferred as a follow-up.

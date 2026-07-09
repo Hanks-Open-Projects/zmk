@@ -78,6 +78,9 @@ jobs:
                 console.log(output.toString());
               } catch (e) {
                 console.error(`::error::Failed to build ${{ matrix.board }} ${shieldArgs.shield} ${shieldArgs['cmake-args']}`);
+                // Print the full captured build output; console.error(e) truncates the stdout/stderr Buffers.
+                if (e.stdout) console.error(e.stdout.toString());
+                if (e.stderr) console.error(e.stderr.toString());
                 console.error(e);
                 error = true;
               } finally {

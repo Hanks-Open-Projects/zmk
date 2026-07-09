@@ -32,7 +32,11 @@ static void raise_led_changed_event(struct k_work *_work) {
 
     raise_zmk_hid_indicators_changed((struct zmk_hid_indicators_changed){.indicators = indicators});
 
-#if IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_HID_INDICATORS) && IS_ENABLED(CONFIG_ZMK_SPLIT)
+#if IS_ENABLED(CONFIG_ZMK_SPLIT_PERIPHERAL_HID_INDICATORS) && IS_ENABLED(CONFIG_ZMK_SPLIT) &&      \
+    IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+    // Only the split central pushes indicator state out to peripherals. In a dual-role image
+    // (CONFIG_ZMK_DERIVATIVE_DUAL_ROLE) this file is compiled into a peripheral too, where the
+    // central-side API is unavailable; guard on the central role so it links either way.
     zmk_split_central_update_hid_indicator(indicators);
 #endif
 }

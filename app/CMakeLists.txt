@@ -45,7 +45,11 @@ target_sources(app PRIVATE src/behaviors/behavior_reset.c)
 target_sources_ifdef(CONFIG_ZMK_EXT_POWER app PRIVATE src/behaviors/behavior_ext_power.c)
 target_sources_ifdef(CONFIG_ZMK_BEHAVIOR_SOFT_OFF app PRIVATE src/behaviors/behavior_soft_off.c)
 add_subdirectory_ifdef(CONFIG_ZMK_POINTING src/pointing/)
-if ((NOT CONFIG_ZMK_SPLIT) OR CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
+# The standalone/central stack (keymap, HID, HOG, endpoints, behaviors) is
+# normally excluded from split-peripheral images. CONFIG_ZMK_DERIVATIVE_DUAL_ROLE
+# force-compiles it into a peripheral image so one build can act as either a
+# direct HID keyboard or a dongle peripheral, chosen at boot (Phase 1).
+if ((NOT CONFIG_ZMK_SPLIT) OR CONFIG_ZMK_SPLIT_ROLE_CENTRAL OR CONFIG_ZMK_DERIVATIVE_DUAL_ROLE)
   target_sources(app PRIVATE src/hid.c)
   target_sources(app PRIVATE src/behaviors/behavior_key_press.c)
   target_sources_ifdef(CONFIG_ZMK_BEHAVIOR_KEY_TOGGLE app PRIVATE src/behaviors/behavior_key_toggle.c)
@@ -87,6 +91,9 @@ if ((NOT CONFIG_ZMK_SPLIT) OR CONFIG_ZMK_SPLIT_ROLE_CENTRAL)
     target_sources(app PRIVATE src/hog.c)
   endif()
 endif()
+
+# Boot-time role state for the single-image dual-role build (Phase 1).
+target_sources_ifdef(CONFIG_ZMK_DERIVATIVE_DUAL_ROLE app PRIVATE src/derivative_role.c)
 
 target_sources_ifdef(CONFIG_ZMK_RGB_UNDERGLOW app PRIVATE src/behaviors/behavior_rgb_underglow.c)
 target_sources_ifdef(CONFIG_ZMK_LED_MAP app PRIVATE src/behaviors/behavior_led_map.c)

@@ -47,6 +47,18 @@ static const struct device *const ext_power_dev = DEVICE_DT_GET(DT_INST(0, zmk_e
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
+/*
+ * Host-side indicator state (active layer, BLE profile, HID caps-lock) only
+ * exists on a non-split keyboard or on the split central. On a split peripheral
+ * (e.g. this keyboard driving a dongle) the keymap / BLE-profile / HID-indicator
+ * subsystems are compiled out, so those inputs must be too, or the image fails
+ * to link. Per-key effects still work on the peripheral: it renders from its own
+ * kscan, and led_map effect controls arrive via the GLOBAL led_map behavior
+ * relayed from the central.
+ */
+#define LED_MAP_HAS_HOST_STATE                                                                      \
+    (!IS_ENABLED(CONFIG_ZMK_SPLIT) || IS_ENABLED(CONFIG_ZMK_SPLIT_ROLE_CENTRAL))
+
 #if !DT_HAS_COMPAT_STATUS_OKAY(zmk_led_map)
 #error "No zmk,led-map node found in devicetree"
 #endif
@@ -672,8 +684,15 @@ static void render_indicator_leds(void) {
         /* BT indicator: only active on boot or profile switch, not on USB.
          * Connected: solid for 3s then off.
          * Not connected: flick until idle timeout. */
-        if (indicator_cache.bt_changed_at > 0 &&
-            zmk_endpoint_get_selected().transport != ZMK_TRANSPORT_USB) {
+        /* bt_changed_at is only ever set on a non-split keyboard or the split
+         * central (the BLE-profile handler is host-state gated), so on a
+         * peripheral this block is inert and the central-only endpoint lookup
+         * must be compiled out. */
+        if (indicator_cache.bt_changed_at > 0
+#if LED_MAP_HAS_HOST_STATE
+            && zmk_endpoint_get_selected().transport != ZMK_TRANSPORT_USB
+#endif
+        ) {
             static const uint16_t bt_hues[] = {240, 120, 0, 60};
             uint8_t idx = indicator_cache.bt_profile_index % 4;
             struct zmk_led_hsb hsb = {.h = bt_hues[idx], .s = SAT_MAX, .b = BRT_MAX};
@@ -843,7 +862,7 @@ static int led_map_event_listener(const zmk_event_t *eh) {
     }
 #endif
 
-#if IS_ENABLED(CONFIG_ZMK_BLE)
+#if LED_MAP_HAS_HOST_STATE && IS_ENABLED(CONFIG_ZMK_BLE)
     const struct zmk_ble_active_profile_changed *bt_ev = as_zmk_ble_active_profile_changed(eh);
     if (bt_ev != NULL) {
         indicator_cache.bt_profile_index = bt_ev->index;
@@ -853,11 +872,13 @@ static int led_map_event_listener(const zmk_event_t *eh) {
     }
 #endif
 
+#if LED_MAP_HAS_HOST_STATE
     const struct zmk_layer_state_changed *layer_ev = as_zmk_layer_state_changed(eh);
     if (layer_ev != NULL) {
         indicator_cache.active_layer = zmk_keymap_highest_layer_active();
         return ZMK_EV_EVENT_BUBBLE;
     }
+#endif
 
     const struct zmk_usb_conn_state_changed *usb_ev = as_zmk_usb_conn_state_changed(eh);
     if (usb_ev != NULL) {
@@ -885,7 +906,9 @@ static int led_map_event_listener(const zmk_event_t *eh) {
 
 ZMK_LISTENER(led_map, led_map_event_listener);
 ZMK_SUBSCRIPTION(led_map, zmk_position_state_changed);
+#if LED_MAP_HAS_HOST_STATE
 ZMK_SUBSCRIPTION(led_map, zmk_layer_state_changed);
+#endif
 ZMK_SUBSCRIPTION(led_map, zmk_activity_state_changed);
 
 #if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
@@ -894,7 +917,7 @@ ZMK_SUBSCRIPTION(led_map, zmk_hid_indicators_changed);
 
 ZMK_SUBSCRIPTION(led_map, zmk_usb_conn_state_changed);
 
-#if IS_ENABLED(CONFIG_ZMK_BLE)
+#if LED_MAP_HAS_HOST_STATE && IS_ENABLED(CONFIG_ZMK_BLE)
 ZMK_SUBSCRIPTION(led_map, zmk_ble_active_profile_changed);
 #endif
 
@@ -1165,7 +1188,10 @@ static int led_map_init(void) {
     memset(pixels, 0, sizeof(pixels));
     memset(key_states, 0, sizeof(key_states));
 
-    /* Initialize indicator cache */
+    /* Initialize indicator cache. Host-side state (layer / BLE profile /
+     * caps-lock) is only available on a non-split keyboard or the split central;
+     * on a peripheral these stay at their defaults. */
+#if LED_MAP_HAS_HOST_STATE
     indicator_cache.active_layer = zmk_keymap_highest_layer_active();
 
 #if IS_ENABLED(CONFIG_ZMK_BLE)
@@ -1178,6 +1204,7 @@ static int led_map_init(void) {
     zmk_hid_indicators_t indicators = zmk_hid_indicators_get_current_profile();
     indicator_cache.caps_lock = (indicators & CAPS_LOCK_BIT) != 0;
 #endif
+#endif /* LED_MAP_HAS_HOST_STATE */
 
 #if IS_ENABLED(CONFIG_SETTINGS)
     k_work_init_delayable(&led_map_save_work, led_map_save_work_handler);

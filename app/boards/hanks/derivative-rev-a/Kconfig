@@ -2,3 +2,24 @@
 # SPDX-License-Identifier: MIT
 
 # DCDC is now configured via devicetree, deprecated Kconfig symbols removed
+
+# Phase 1 (experimental): single-image boot-time role selection.
+# A dual-role build is a split-peripheral build that ALSO compiles the standalone
+# keymap/HID/HOG stack, so the keyboard can choose at boot between acting as a
+# direct BLE HID keyboard or as a peripheral to a dongle. Compiling both stacks is
+# the prerequisite; runtime role gating (advertising, kscan routing, bonds) is
+# layered on top. This symbol only affects builds that opt in.
+config ZMK_DERIVATIVE_DUAL_ROLE
+    bool "Derivative dual-role (standalone + dongle-peripheral in one image)"
+    depends on ZMK_SPLIT && !ZMK_SPLIT_ROLE_CENTRAL
+    help
+      Compile the standalone HID stack alongside the split-peripheral stack.
+
+config ZMK_DERIVATIVE_DEFAULT_ROLE_DONGLE
+    bool "Default to the dongle-peripheral role when none is persisted"
+    depends on ZMK_DERIVATIVE_DUAL_ROLE
+    help
+      Selects the boot role used before anything is persisted (and for
+      forced-role bring-up images used to validate the runtime gates). When
+      disabled, an unconfigured dual-role image boots as a standalone BLE
+      keyboard.

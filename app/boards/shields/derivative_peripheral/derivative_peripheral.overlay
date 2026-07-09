@@ -1,0 +1,12 @@
+/*
+ * Intentionally (almost) empty.
+ *
+ * derivative_peripheral is a config-only shield: it flips the derivative-rev-a
+ * board into split-peripheral role via Kconfig. All hardware (kscan, matrix
+ * transform, physical layout, RGB strip) comes from the board's own devicetree.
+ *
+ * This file exists solely so Zephyr's shield discovery registers the shield
+ * name -- shields are found by scanning for "<shield>.overlay", not Kconfig.
+ */
+
+/ { };

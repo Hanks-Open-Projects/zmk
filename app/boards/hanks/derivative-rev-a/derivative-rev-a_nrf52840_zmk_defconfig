@@ -40,3 +40,6 @@ CONFIG_ZMK_USB=y
 CONFIG_ZMK_BLE=y
 CONFIG_ZMK_STUDIO=y
 CONFIG_ZMK_SLEEP=y
+
+# Max BLE transmit power for the nRF52840 (+8 dBm) to boost signal/range
+CONFIG_BT_CTLR_TX_PWR_PLUS_8=y

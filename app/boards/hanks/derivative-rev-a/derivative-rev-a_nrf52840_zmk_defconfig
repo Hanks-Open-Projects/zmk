@@ -43,3 +43,6 @@ CONFIG_ZMK_SLEEP=y
 
 # Max BLE transmit power for the nRF52840 (+8 dBm) to boost signal/range
 CONFIG_BT_CTLR_TX_PWR_PLUS_8=y
+
+# Optimize for speed (-O2) instead of size (-Os); flash is only ~27% used
+CONFIG_SPEED_OPTIMIZATIONS=y

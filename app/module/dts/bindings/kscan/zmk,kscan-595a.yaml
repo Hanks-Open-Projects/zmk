@@ -30,3 +30,22 @@ properties:
     type: int
     required: true
     description: Number of 74HC595A shift registers in the chain
+
+  settle-delay-us:
+    type: int
+    default: 10
+    description: |
+      Maximum microseconds to wait for the sense line to settle after
+      selecting a column. The scan exits the wait early as soon as the line
+      reads HIGH (released), so this bounds only the worst case: the line
+      rising back through its pull-up after a pressed column, and the
+      confirmation window for a genuine press. Lowering it below the line's
+      actual rise time causes ghost presses on the columns following a held
+      key — validate on hardware.
+
+  poll-period-ms:
+    type: int
+    default: 1
+    description: |
+      Scan poll period in milliseconds. 1 matches the 1000Hz USB polling
+      rate; raise to trade key latency for battery life.

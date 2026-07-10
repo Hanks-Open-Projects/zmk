@@ -23,6 +23,8 @@ struct kscan_595a_config {
     struct gpio_dt_spec sck_gpio;
     struct gpio_dt_spec sense_gpio;
     uint8_t hc595a_count;
+    uint16_t settle_delay_us;
+    uint16_t poll_period_ms;
 };
 
 struct kscan_595a_data {
@@ -65,11 +67,29 @@ static void kscan_595a_scan(struct k_work *work) {
 
     /* Scan each column */
     for (int col = 0; col < num_columns; col++) {
-        /* Delay for signal to settle */
-        k_busy_wait(10);
-
-        /* Read sense pin - LOW means key pressed */
-        bool pressed = (gpio_pin_get_dt(&config->sense_gpio) == 0);
+        /*
+         * Adaptive settle. The sense line falls fast (a pressed key pulls it
+         * LOW through the switch and 595 output, <1us) but rises slowly (a
+         * release recharges through the weak pull-up, up to ~10us). So a
+         * HIGH reading is conclusive immediately — nothing can make the line
+         * read falsely high — while a LOW reading must survive the full
+         * settle window before it is believed to be a press. Unpressed
+         * columns therefore cost one read instead of the full delay, and the
+         * press decision is never made earlier than the fixed-delay version.
+         */
+        bool pressed = true;
+        for (uint16_t us = 0; us < config->settle_delay_us; us++) {
+            if (gpio_pin_get_dt(&config->sense_gpio) != 0) {
+                pressed = false;
+                break;
+            }
+            k_busy_wait(1);
+        }
+        if (pressed) {
+            /* Confirm at the end of the window, matching the fixed-delay
+             * read point. */
+            pressed = (gpio_pin_get_dt(&config->sense_gpio) == 0);
+        }
 
         if (pressed != data->pressed[col]) {
             data->pressed[col] = pressed;
@@ -83,7 +103,7 @@ static void kscan_595a_scan(struct k_work *work) {
         gpio_pin_set_dt(&config->sck_gpio, 0);
     }
 
-    k_work_schedule(&data->work, K_MSEC(1));
+    k_work_schedule(&data->work, K_MSEC(config->poll_period_ms));
 }
 
 static int kscan_595a_configure(const struct device *dev, kscan_callback_t callback) {
@@ -235,6 +255,8 @@ static const struct kscan_driver_api kscan_595a_api = {
         .sck_gpio = GPIO_DT_SPEC_INST_GET(n, hc595a_sck_gpios),                                    \
         .sense_gpio = GPIO_DT_SPEC_INST_GET(n, key_sense_gpios),                                   \
         .hc595a_count = DT_INST_PROP(n, hc595a_count),                                             \
+        .settle_delay_us = DT_INST_PROP(n, settle_delay_us),                                       \
+        .poll_period_ms = DT_INST_PROP(n, poll_period_ms),                                         \
     };                                                                                             \
                                                                                                    \
     PM_DEVICE_DT_INST_DEFINE(n, kscan_595a_pm_action);                                             \

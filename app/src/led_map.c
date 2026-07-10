@@ -180,13 +180,10 @@ static struct {
 
 /* Per-key BLE-profile status overlay: shows the active profile's connection
  * state on its own top-row key (profile 0 -> leftmost key, 1 -> next, ...).
- * Blue flashing = open/ready to connect; green 3 flashes = just connected. */
-static struct {
-    uint8_t profile;     /* active profile index */
-    bool open;           /* advertising / ready for a new device */
-    bool connected;      /* currently connected */
-    int64_t green_until; /* if > now, render the green "connected" 3-flash */
-} bt_key_ind;
+ * Blue flashing = open (never bonded, free to pair a new device); green
+ * 3 flashes = just connected. Live BLE state is queried at render time; the
+ * only cached state is the end of the green "just connected" window. */
+static int64_t bt_overlay_green_until;
 
 /* --- HSB to RGB conversion --- */
 
@@ -576,26 +573,43 @@ static void render_per_key_leds(void) {
 
 /* --- Per-key BLE profile status overlay --- */
 
-/* Number of keys in the top row. The whole row is blanked while the BLE
- * profile status is flashing so it does not mix with the per-key effect. */
-#define BT_STATUS_ROW_KEYS 6
+/* The overlay occupies the top per-key row; the whole row is blanked while
+ * the BLE profile status is flashing so it does not mix with the per-key
+ * effect. Row width comes from the board LED-map header. */
+#define BT_STATUS_ROW_KEYS (per_key_row_sizes[0])
+
+/* How long BT status feedback runs after a profile change: 3 blink periods.
+ * Shared by the overlay's green window and the dedicated BT LED's solid
+ * window so the two indicators start and stop together. */
+#define BT_STATUS_FEEDBACK_MS (3 * CONFIG_ZMK_LED_MAP_BAT_FLICK_PERIOD)
 
 /* True while the per-key BLE profile status is being shown (blue "ready to
- * connect", or the green just-connected 3-flash). Used both to blank the top
- * row and to suppress the dedicated BT status LED, which would be redundant. */
+ * connect", or the green just-connected 3-flash). Used to blank the top row,
+ * to suppress the dedicated BT status LED (redundant), and to keep the render
+ * timer alive via led_map_check_timer(). Gated like the dedicated BT LED
+ * (only after a profile change, not on USB) but deliberately NOT on the
+ * per-key/indicator toggles: BLE status lights up even on a dark board. */
 static bool bt_profile_overlay_active(void) {
 #if IS_ENABLED(CONFIG_ZMK_BLE)
-    int64_t now = k_uptime_get();
-    return (bt_key_ind.green_until > now) || (bt_key_ind.open && !bt_key_ind.connected);
+    if (indicator_cache.bt_changed_at <= 0 ||
+        zmk_endpoint_get_selected().transport == ZMK_TRANSPORT_USB) {
+        return false;
+    }
+    if (bt_overlay_green_until > k_uptime_get()) {
+        return true; /* green just-connected window */
+    }
+    /* Blue: the active profile is open (never bonded) and waiting for a new
+     * device. Queried live so state restored by settings load after init, or
+     * changed without an event, is never stale. */
+    return zmk_ble_active_profile_is_open() && !zmk_ble_active_profile_is_connected();
 #else
     return false;
 #endif
 }
 
-/* Overlay the active BLE profile's status onto its top-row key, drawn on top
- * of whatever per-key effect is running:
- *   - green, 3 flashes  : the profile just connected (after switching to it)
- *   - blue, flashing     : the profile is open / ready to connect to a device
+/* Overlay the active BLE profile's status onto its top-row key:
+ *   - green, 3 flashes : the profile just connected (after switching to it)
+ *   - blue, flashing   : the profile is open / ready to pair a new device
  * Only the active profile's key is shown. Profile index maps directly to key
  * position (0 = leftmost top-row key). */
 static void render_bt_profile_overlay(void) {
@@ -603,31 +617,34 @@ static void render_bt_profile_overlay(void) {
     if (!bt_profile_overlay_active()) {
         return; /* no status to show; per-key effect runs normally */
     }
-    int64_t now = k_uptime_get();
 
     /* Blank the whole top row while showing status so the flash reads cleanly
      * instead of mixing with the per-key effect. */
-    for (int i = 0; i < BT_STATUS_ROW_KEYS && i < PER_KEY_COUNT; i++) {
+    for (int i = 0; i < BT_STATUS_ROW_KEYS; i++) {
         uint8_t idx = per_key_map[i];
         if (idx < TOTAL_LEDS) {
             pixels[idx] = (struct led_rgb){0};
         }
     }
 
-    uint8_t p = bt_key_ind.profile;
-    if (p >= PER_KEY_COUNT) {
-        return;
+    uint8_t p = zmk_ble_active_profile_index();
+    if (p >= BT_STATUS_ROW_KEYS) {
+        return; /* profile has no key on the top row */
     }
     uint8_t led_idx = per_key_map[p];
     if (led_idx >= TOTAL_LEDS) {
         return;
     }
 
+    /* Blink phase is anchored to the profile-change timestamp (like the
+     * battery display) so the green window renders exactly 3 clean flashes
+     * no matter when the connect lands. */
+    int64_t now = k_uptime_get();
+    int64_t elapsed = now - indicator_cache.bt_changed_at;
     int period = CONFIG_ZMK_LED_MAP_BAT_FLICK_PERIOD;
-    if ((now % period) < (period / 2)) { /* blink on-phase */
-        uint16_t hue = (bt_key_ind.green_until > now) ? 120 : 240; /* green / blue */
-        struct zmk_led_hsb hsb = {
-            .h = hue, .s = SAT_MAX, .b = scale_brt(BRT_MAX, CONFIG_ZMK_LED_MAP_PER_KEY_BRT_MAX)};
+    if ((elapsed % period) < (period / 2)) { /* blink on-phase */
+        uint16_t hue = (bt_overlay_green_until > now) ? 120 : 240; /* green / blue */
+        struct zmk_led_hsb hsb = {.h = hue, .s = SAT_MAX, .b = CONFIG_ZMK_LED_MAP_PER_KEY_BRT_MAX};
         pixels[led_idx] = hsb_to_rgb(hsb);
     }
 #endif
@@ -754,9 +771,11 @@ static void render_indicator_leds(void) {
 #if BT_LED_INDEX >= 0
     {
         /* BT indicator: only active on boot or profile switch, not on USB.
-         * Connected: solid for 3s then off.
+         * Connected: solid for the shared feedback window, then off.
          * Not connected: flick until idle timeout.
-         * Suppressed while the per-key profile overlay is showing (redundant). */
+         * Suppressed while the per-key profile overlay is showing (redundant).
+         * The solid window matches the overlay's green window so the LED does
+         * not pop back on after the overlay's flashes end. */
         if (indicator_cache.bt_changed_at > 0 &&
             zmk_endpoint_get_selected().transport != ZMK_TRANSPORT_USB &&
             !bt_profile_overlay_active()) {
@@ -767,7 +786,7 @@ static void render_indicator_leds(void) {
 
             if (indicator_cache.bt_connected) {
                 int64_t elapsed = k_uptime_get() - indicator_cache.bt_changed_at;
-                if (elapsed < 3000) {
+                if (elapsed < BT_STATUS_FEEDBACK_MS) {
                     pixels[BT_LED_INDEX] = INDICATOR_SCALE_RGB(color);
                 }
             } else {
@@ -818,6 +837,8 @@ static void render_indicator_leds(void) {
 
 static bool led_map_timer_running;
 
+static void led_map_check_timer(void);
+
 static void led_map_tick(struct k_work *work) {
     memset(pixels, 0, sizeof(pixels));
 
@@ -827,6 +848,10 @@ static void led_map_tick(struct k_work *work) {
     render_indicator_leds();
 
     led_strip_update_rgb(led_strip_dev, pixels, TOTAL_LEDS);
+
+    /* Re-evaluate after rendering so the timer self-stops once a time-bounded
+     * status (e.g. the BT green flash) ends and nothing else needs LEDs. */
+    led_map_check_timer();
 }
 
 K_WORK_DEFINE(led_map_tick_work, led_map_tick);
@@ -880,7 +905,8 @@ static void led_map_check_timer(void) {
     } else {
         struct zmk_rgb_underglow_render_state ug;
         bool ug_on = (zmk_rgb_underglow_get_render_state(&ug) == 0 && ug.on);
-        need_leds = lm_state.per_key_on || lm_state.indicators_on || ug_on;
+        need_leds =
+            lm_state.per_key_on || lm_state.indicators_on || ug_on || bt_profile_overlay_active();
     }
 
     if (need_leds) {
@@ -937,17 +963,17 @@ static int led_map_event_listener(const zmk_event_t *eh) {
         indicator_cache.bt_connected = zmk_ble_active_profile_is_connected();
         indicator_cache.bt_changed_at = k_uptime_get();
 
-        /* Per-key profile overlay: green 3-flash when the active profile is
-         * connected (on switch-to it, or when it connects); blue flash while
-         * it is open/advertising. */
-        bool was_connected = bt_key_ind.connected;
-        uint8_t prev_profile = bt_key_ind.profile;
-        bt_key_ind.profile = bt_ev->index;
-        bt_key_ind.open = zmk_ble_active_profile_is_open();
-        bt_key_ind.connected = indicator_cache.bt_connected;
-        if (bt_key_ind.connected && (bt_ev->index != prev_profile || !was_connected)) {
-            bt_key_ind.green_until = k_uptime_get() + 3 * CONFIG_ZMK_LED_MAP_BAT_FLICK_PERIOD;
+        /* Per-key profile overlay: (re)start the green "connected" window on
+         * any profile event while connected — a switch, a fresh connect, or a
+         * same-profile re-select (feedback replay). The blue "open" state
+         * needs no bookkeeping here (queried live at render time). Anchored
+         * to bt_changed_at, which also anchors the blink phase. */
+        if (indicator_cache.bt_connected) {
+            bt_overlay_green_until = indicator_cache.bt_changed_at + BT_STATUS_FEEDBACK_MS;
         }
+        /* The status may need to display while all other LED sources are off:
+         * start the render timer if the overlay is now active. */
+        led_map_check_timer();
         return ZMK_EV_EVENT_BUBBLE;
     }
 #endif
@@ -1285,13 +1311,12 @@ static int led_map_init(void) {
     indicator_cache.active_layer = zmk_keymap_highest_layer_active();
 
 #if IS_ENABLED(CONFIG_ZMK_BLE)
+    /* Note: this runs before settings_load() restores bonds, so these reads
+     * see pre-restore state; the overlay avoids the problem by querying live
+     * BLE state at render time. */
     indicator_cache.bt_profile_index = zmk_ble_active_profile_index();
     indicator_cache.bt_connected = zmk_ble_active_profile_is_connected();
     indicator_cache.bt_changed_at = k_uptime_get();
-
-    bt_key_ind.profile = zmk_ble_active_profile_index();
-    bt_key_ind.open = zmk_ble_active_profile_is_open();
-    bt_key_ind.connected = zmk_ble_active_profile_is_connected();
 #endif
 
 #if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)

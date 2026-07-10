@@ -25,17 +25,46 @@ struct kscan_595a_config {
     uint8_t hc595a_count;
     uint16_t settle_delay_us;
     uint16_t poll_period_ms;
+    uint16_t idle_timeout_ms;
 };
 
 struct kscan_595a_data {
     const struct device *dev;
     kscan_callback_t callback;
     struct k_work_delayable work;
+    uint16_t idle_scans; /* consecutive scans with no key pressed */
+    bool waiting;        /* interrupt-wait idle mode: polling stopped */
     bool pressed[MAX_COLUMNS];
-#if IS_ENABLED(CONFIG_PM_DEVICE)
     struct gpio_callback sense_cb;
-#endif
 };
+
+/* Fill all shift register outputs with 0s. With every column LOW, any key
+ * press pulls the shared sense line LOW, which can fire an interrupt. Used
+ * both for the runtime interrupt-wait idle mode and for deep sleep. */
+static void kscan_595a_set_all_outputs_low(const struct device *dev) {
+    const struct kscan_595a_config *config = dev->config;
+    const uint8_t num_columns = config->hc595a_count * 8;
+
+    gpio_pin_set_dt(&config->ser_gpio, 0);
+    for (int i = 0; i < num_columns; i++) {
+        gpio_pin_set_dt(&config->sck_gpio, 1);
+        gpio_pin_set_dt(&config->sck_gpio, 0);
+    }
+}
+
+/* Sense-line interrupt: fires on the first key press while in interrupt-wait
+ * idle mode. Level-triggered, so disable it immediately to avoid re-firing
+ * while the key is held, then hand off to the scan work. (For System OFF the
+ * same pin config provides nRF SENSE wake-up, where the CPU resets on wake
+ * and this handler never actually runs.) */
+static void kscan_595a_sense_irq_handler(const struct device *gpio, struct gpio_callback *cb,
+                                         uint32_t pins) {
+    struct kscan_595a_data *data = CONTAINER_OF(cb, struct kscan_595a_data, sense_cb);
+    const struct kscan_595a_config *config = data->dev->config;
+
+    gpio_pin_interrupt_configure_dt(&config->sense_gpio, GPIO_INT_DISABLE);
+    k_work_schedule(&data->work, K_NO_WAIT);
+}
 
 static void kscan_595a_scan(struct k_work *work) {
     struct k_work_delayable *dwork = CONTAINER_OF(work, struct k_work_delayable, work);
@@ -44,6 +73,15 @@ static void kscan_595a_scan(struct k_work *work) {
     const struct kscan_595a_config *config = dev->config;
 
     const uint8_t num_columns = config->hc595a_count * 8;
+    const uint16_t poll_ms = MAX(config->poll_period_ms, 1);
+
+    if (data->waiting) {
+        /* Leaving interrupt-wait mode (sense IRQ fired, or re-enabled).
+         * Disable the interrupt defensively for paths that did not go
+         * through the IRQ handler; the refill below restores the chain. */
+        data->waiting = false;
+        gpio_pin_interrupt_configure_dt(&config->sense_gpio, GPIO_INT_DISABLE);
+    }
 
     /*
      * Walking bit scan for 74HC595A shift registers.
@@ -66,6 +104,7 @@ static void kscan_595a_scan(struct k_work *work) {
     gpio_pin_set_dt(&config->ser_gpio, 1);
 
     /* Scan each column */
+    bool any_pressed = false;
     for (int col = 0; col < num_columns; col++) {
         /*
          * Adaptive settle. The sense line falls fast (a pressed key pulls it
@@ -97,13 +136,28 @@ static void kscan_595a_scan(struct k_work *work) {
                 data->callback(dev, 0, col, pressed);
             }
         }
+        any_pressed = any_pressed || pressed;
 
         /* Shift to next column */
         gpio_pin_set_dt(&config->sck_gpio, 1);
         gpio_pin_set_dt(&config->sck_gpio, 0);
     }
 
-    k_work_schedule(&data->work, K_MSEC(config->poll_period_ms));
+    if (any_pressed) {
+        data->idle_scans = 0;
+    } else if (config->idle_timeout_ms > 0 &&
+               ++data->idle_scans >= config->idle_timeout_ms / poll_ms) {
+        /* Nothing pressed for the idle window: stop polling entirely. With
+         * all columns LOW, the first key press pulls the sense line LOW and
+         * the level interrupt reschedules this work immediately. */
+        data->idle_scans = 0;
+        data->waiting = true;
+        kscan_595a_set_all_outputs_low(dev);
+        gpio_pin_interrupt_configure_dt(&config->sense_gpio, GPIO_INT_LEVEL_INACTIVE);
+        return;
+    }
+
+    k_work_schedule(&data->work, K_MSEC(poll_ms));
 }
 
 static int kscan_595a_configure(const struct device *dev, kscan_callback_t callback) {
@@ -120,7 +174,13 @@ static int kscan_595a_enable(const struct device *dev) {
 
 static int kscan_595a_disable(const struct device *dev) {
     struct kscan_595a_data *data = dev->data;
+    const struct kscan_595a_config *config = dev->config;
+
     k_work_cancel_delayable(&data->work);
+    if (data->waiting) {
+        data->waiting = false;
+        gpio_pin_interrupt_configure_dt(&config->sense_gpio, GPIO_INT_DISABLE);
+    }
     return 0;
 }
 
@@ -138,27 +198,6 @@ static void kscan_595a_setup_pins(const struct device *dev) {
 }
 
 #if IS_ENABLED(CONFIG_PM_DEVICE)
-
-static void kscan_595a_sense_irq_handler(const struct device *gpio, struct gpio_callback *cb,
-                                         uint32_t pins) {
-    /* No-op: this callback exists to configure GPIO SENSE for nRF52 System OFF wake-up */
-}
-
-static void kscan_595a_set_all_outputs_low(const struct device *dev) {
-    const struct kscan_595a_config *config = dev->config;
-    const uint8_t num_columns = config->hc595a_count * 8;
-
-    /*
-     * Set all shift register outputs to LOW for sleep mode.
-     * This way, any key press will pull the sense line LOW,
-     * which can trigger a wake-up interrupt.
-     */
-    gpio_pin_set_dt(&config->ser_gpio, 0);
-    for (int i = 0; i < num_columns; i++) {
-        gpio_pin_set_dt(&config->sck_gpio, 1);
-        gpio_pin_set_dt(&config->sck_gpio, 0);
-    }
-}
 
 static int kscan_595a_sleep_gpios(const struct device *dev) {
     const struct kscan_595a_config *config = dev->config;
@@ -181,7 +220,6 @@ static int kscan_595a_sleep_gpios(const struct device *dev) {
 }
 
 static int kscan_595a_pm_action(const struct device *dev, enum pm_device_action action) {
-    struct kscan_595a_data *data = dev->data;
     const struct kscan_595a_config *config = dev->config;
 
     switch (action) {
@@ -192,16 +230,13 @@ static int kscan_595a_pm_action(const struct device *dev, enum pm_device_action 
         /* Keep SER and SCK pulled LOW to preserve shift register state */
         kscan_595a_sleep_gpios(dev);
         /* Configure sense pin interrupt for wake-up from deep sleep.
-         * On nRF52, this sets up GPIO SENSE for System OFF wake. */
+         * On nRF52, this sets up GPIO SENSE for System OFF wake; the
+         * callback is registered permanently at init. */
         gpio_pin_interrupt_configure_dt(&config->sense_gpio, GPIO_INT_LEVEL_INACTIVE);
-        gpio_init_callback(&data->sense_cb, kscan_595a_sense_irq_handler,
-                           BIT(config->sense_gpio.pin));
-        gpio_add_callback(config->sense_gpio.port, &data->sense_cb);
         return 0;
 
     case PM_DEVICE_ACTION_RESUME:
         gpio_pin_interrupt_configure_dt(&config->sense_gpio, GPIO_INT_DISABLE);
-        gpio_remove_callback(config->sense_gpio.port, &data->sense_cb);
         kscan_595a_setup_pins(dev);
         return kscan_595a_enable(dev);
 
@@ -238,6 +273,12 @@ static int kscan_595a_init(const struct device *dev) {
     k_work_init_delayable(&data->work, kscan_595a_scan);
     kscan_595a_setup_pins(dev);
 
+    /* Register the sense callback once; the interrupt itself is only enabled
+     * while in interrupt-wait idle mode (and for System OFF wake). */
+    gpio_init_callback(&data->sense_cb, kscan_595a_sense_irq_handler,
+                       BIT(config->sense_gpio.pin));
+    gpio_add_callback(config->sense_gpio.port, &data->sense_cb);
+
     return 0;
 }
 
@@ -257,6 +298,7 @@ static const struct kscan_driver_api kscan_595a_api = {
         .hc595a_count = DT_INST_PROP(n, hc595a_count),                                             \
         .settle_delay_us = DT_INST_PROP(n, settle_delay_us),                                       \
         .poll_period_ms = DT_INST_PROP(n, poll_period_ms),                                         \
+        .idle_timeout_ms = DT_INST_PROP(n, idle_timeout_ms),                                       \
     };                                                                                             \
                                                                                                    \
     PM_DEVICE_DT_INST_DEFINE(n, kscan_595a_pm_action);                                             \

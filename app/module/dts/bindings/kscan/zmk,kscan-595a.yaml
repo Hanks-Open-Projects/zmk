@@ -49,3 +49,13 @@ properties:
     description: |
       Scan poll period in milliseconds. 1 matches the 1000Hz USB polling
       rate; raise to trade key latency for battery life.
+
+  idle-timeout-ms:
+    type: int
+    default: 30
+    description: |
+      How long to keep polling after the last key release before switching
+      to interrupt-driven wait: all columns are driven LOW and a sense-line
+      level interrupt resumes polling on the first key press, so no scan
+      work runs at all while no keys are held. 0 disables the interrupt
+      wait and polls continuously.

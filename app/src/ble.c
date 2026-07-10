@@ -291,6 +291,9 @@ int zmk_ble_prof_select(uint8_t index) {
 
     LOG_DBG("profile %d", index);
     if (active_profile == index) {
+        /* No-op switch, but still notify listeners so status indicators can
+         * replay their feedback for the (unchanged) active profile. */
+        raise_profile_changed_event();
         return 0;
     }
 

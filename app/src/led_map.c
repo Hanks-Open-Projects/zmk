@@ -116,13 +116,18 @@ enum per_key_effect {
 #define SAT_MAX 100
 #define BRT_MAX 100
 
-/* Reactive-fade and starry effects may use a higher ceiling than the steady
- * per-key cap. REACTIVE_BRT_MAX=0 (default) means "fall back to the per-key max". */
-#if CONFIG_ZMK_LED_MAP_REACTIVE_BRT_MAX > 0
-#define LED_MAP_REACTIVE_BRT_MAX CONFIG_ZMK_LED_MAP_REACTIVE_BRT_MAX
-#else
-#define LED_MAP_REACTIVE_BRT_MAX CONFIG_ZMK_LED_MAP_PER_KEY_BRT_MAX
-#endif
+/* Shared 50% duty blink gate on the flick period. Pass an elapsed time
+ * anchored to the animation's start for a deterministic flash count, or raw
+ * uptime for free-running blinks. */
+static inline bool flick_phase_on(int64_t t) {
+    return (t % CONFIG_ZMK_LED_MAP_BAT_FLICK_PERIOD) <
+           (CONFIG_ZMK_LED_MAP_BAT_FLICK_PERIOD / 2);
+}
+
+/* BLE status hues used by the per-key profile overlay. (The dedicated BT
+ * LED's per-profile palette is a separate table, bt_hues[].) */
+#define BT_HUE_CONNECTED 120 /* green */
+#define BT_HUE_OPEN 240      /* blue */
 
 /* Idle timeout adjustment: 30s..120s in 15s steps (7 levels). */
 #define IDLE_TIMEOUT_MIN_MS 30000
@@ -368,7 +373,7 @@ static void reactive_fade_render(uint16_t hue, int i) {
 
     struct zmk_led_hsb hsb = {.h = hue, .s = lm_state.color.s, .b = BRT_MAX};
     struct led_rgb rgb = hsb_to_rgb(hsb);
-    uint32_t scale = (uint32_t)brt * lm_state.color.b * LED_MAP_REACTIVE_BRT_MAX;
+    uint32_t scale = (uint32_t)brt * lm_state.color.b * CONFIG_ZMK_LED_MAP_REACTIVE_BRT_MAX;
     uint32_t divisor = (uint32_t)BRT_MAX * 100 * 100;
     rgb.r = (uint8_t)((uint32_t)rgb.r * scale / divisor);
     rgb.g = (uint8_t)((uint32_t)rgb.g * scale / divisor);
@@ -444,7 +449,7 @@ static void per_key_effect_starry(void) {
          * brightness in one step to preserve sub-levels at low settings */
         struct zmk_led_hsb hsb = {.h = key_states[i].hue, .s = lm_state.color.s, .b = BRT_MAX};
         struct led_rgb rgb = hsb_to_rgb(hsb);
-        uint32_t scale = (uint32_t)brt * lm_state.color.b * LED_MAP_REACTIVE_BRT_MAX;
+        uint32_t scale = (uint32_t)brt * lm_state.color.b * CONFIG_ZMK_LED_MAP_REACTIVE_BRT_MAX;
         uint32_t divisor = (uint32_t)BRT_MAX * 100 * 100;
         rgb.r = (uint8_t)((uint32_t)rgb.r * scale / divisor);
         rgb.g = (uint8_t)((uint32_t)rgb.g * scale / divisor);
@@ -640,10 +645,8 @@ static void render_bt_profile_overlay(void) {
      * battery display) so the green window renders exactly 3 clean flashes
      * no matter when the connect lands. */
     int64_t now = k_uptime_get();
-    int64_t elapsed = now - indicator_cache.bt_changed_at;
-    int period = CONFIG_ZMK_LED_MAP_BAT_FLICK_PERIOD;
-    if ((elapsed % period) < (period / 2)) { /* blink on-phase */
-        uint16_t hue = (bt_overlay_green_until > now) ? 120 : 240; /* green / blue */
+    if (flick_phase_on(now - indicator_cache.bt_changed_at)) {
+        uint16_t hue = (bt_overlay_green_until > now) ? BT_HUE_CONNECTED : BT_HUE_OPEN;
         struct zmk_led_hsb hsb = {.h = hue, .s = SAT_MAX, .b = CONFIG_ZMK_LED_MAP_PER_KEY_BRT_MAX};
         pixels[led_idx] = hsb_to_rgb(hsb);
     }
@@ -674,7 +677,7 @@ static void render_indicator_leds(void) {
 
         if (indicator_cache.bat_requested_at > 0 && bat_elapsed < total_duration) {
             struct led_rgb black = {.r = 0, .g = 0, .b = 0};
-            bool show = (bat_elapsed % period) < (period / 2);
+            bool show = flick_phase_on(bat_elapsed);
 
             struct led_rgb led0 = black, led1 = black, led2 = black;
 
@@ -779,8 +782,10 @@ static void render_indicator_leds(void) {
         if (indicator_cache.bt_changed_at > 0 &&
             zmk_endpoint_get_selected().transport != ZMK_TRANSPORT_USB &&
             !bt_profile_overlay_active()) {
-            static const uint16_t bt_hues[] = {240, 120, 0, 60};
-            uint8_t idx = indicator_cache.bt_profile_index % 4;
+            /* Per-profile palette: blue, green, red, yellow, magenta.
+             * One entry per profile (ZMK_BLE_PROFILE_COUNT = 5 here). */
+            static const uint16_t bt_hues[] = {240, 120, 0, 60, 300};
+            uint8_t idx = indicator_cache.bt_profile_index % ARRAY_SIZE(bt_hues);
             struct zmk_led_hsb hsb = {.h = bt_hues[idx], .s = SAT_MAX, .b = BRT_MAX};
             struct led_rgb color = hsb_to_rgb(hsb);
 
@@ -789,12 +794,8 @@ static void render_indicator_leds(void) {
                 if (elapsed < BT_STATUS_FEEDBACK_MS) {
                     pixels[BT_LED_INDEX] = INDICATOR_SCALE_RGB(color);
                 }
-            } else {
-                int period = CONFIG_ZMK_LED_MAP_BAT_FLICK_PERIOD;
-                bool show = (k_uptime_get() % period) < (period / 2);
-                if (show) {
-                    pixels[BT_LED_INDEX] = INDICATOR_SCALE_RGB(color);
-                }
+            } else if (flick_phase_on(k_uptime_get())) {
+                pixels[BT_LED_INDEX] = INDICATOR_SCALE_RGB(color);
             }
         }
     }

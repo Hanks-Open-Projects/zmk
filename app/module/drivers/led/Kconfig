@@ -19,14 +19,13 @@ config ZMK_LED_MAP_PER_KEY_BRT_MAX
     default 10
 
 config ZMK_LED_MAP_REACTIVE_BRT_MAX
-    int "Reactive/starry effect maximum brightness in percent (0 = use per-key max)"
+    int "Reactive/starry effect maximum brightness in percent"
     range 0 100
-    default 0
+    default ZMK_LED_MAP_PER_KEY_BRT_MAX
     help
-      Optional separate brightness ceiling for the dynamic reactive-fade and
-      starry effects. When 0, they use ZMK_LED_MAP_PER_KEY_BRT_MAX. When set to
-      1-100, those effects use this value instead, letting keypress flashes and
-      twinkles exceed the steady per-key cap.
+      Brightness ceiling for the dynamic reactive-fade and starry effects,
+      letting keypress flashes and twinkles exceed the steady per-key cap.
+      Defaults to the per-key maximum; 0 turns those effects' output off.
 
 config ZMK_LED_MAP_INDICATOR_BRT_MAX
     int "Indicator LED maximum brightness in percent"

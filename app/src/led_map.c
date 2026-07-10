@@ -116,6 +116,14 @@ enum per_key_effect {
 #define SAT_MAX 100
 #define BRT_MAX 100
 
+/* Reactive-fade and starry effects may use a higher ceiling than the steady
+ * per-key cap. REACTIVE_BRT_MAX=0 (default) means "fall back to the per-key max". */
+#if CONFIG_ZMK_LED_MAP_REACTIVE_BRT_MAX > 0
+#define LED_MAP_REACTIVE_BRT_MAX CONFIG_ZMK_LED_MAP_REACTIVE_BRT_MAX
+#else
+#define LED_MAP_REACTIVE_BRT_MAX CONFIG_ZMK_LED_MAP_PER_KEY_BRT_MAX
+#endif
+
 /* Idle timeout adjustment: 30s..120s in 15s steps (7 levels). */
 #define IDLE_TIMEOUT_MIN_MS 30000
 #define IDLE_TIMEOUT_MAX_MS 120000
@@ -353,7 +361,7 @@ static void reactive_fade_render(uint16_t hue, int i) {
 
     struct zmk_led_hsb hsb = {.h = hue, .s = lm_state.color.s, .b = BRT_MAX};
     struct led_rgb rgb = hsb_to_rgb(hsb);
-    uint32_t scale = (uint32_t)brt * lm_state.color.b * CONFIG_ZMK_LED_MAP_PER_KEY_BRT_MAX;
+    uint32_t scale = (uint32_t)brt * lm_state.color.b * LED_MAP_REACTIVE_BRT_MAX;
     uint32_t divisor = (uint32_t)BRT_MAX * 100 * 100;
     rgb.r = (uint8_t)((uint32_t)rgb.r * scale / divisor);
     rgb.g = (uint8_t)((uint32_t)rgb.g * scale / divisor);
@@ -429,7 +437,7 @@ static void per_key_effect_starry(void) {
          * brightness in one step to preserve sub-levels at low settings */
         struct zmk_led_hsb hsb = {.h = key_states[i].hue, .s = lm_state.color.s, .b = BRT_MAX};
         struct led_rgb rgb = hsb_to_rgb(hsb);
-        uint32_t scale = (uint32_t)brt * lm_state.color.b * CONFIG_ZMK_LED_MAP_PER_KEY_BRT_MAX;
+        uint32_t scale = (uint32_t)brt * lm_state.color.b * LED_MAP_REACTIVE_BRT_MAX;
         uint32_t divisor = (uint32_t)BRT_MAX * 100 * 100;
         rgb.r = (uint8_t)((uint32_t)rgb.r * scale / divisor);
         rgb.g = (uint8_t)((uint32_t)rgb.g * scale / divisor);

@@ -839,6 +839,22 @@ static bool led_map_timer_running;
 
 static void led_map_check_timer(void);
 
+/* Last frame actually transmitted to the strip. WS2812 LEDs latch their last
+ * value, so identical frames (solid effect, blink off-phases, all-off on USB)
+ * can skip the ~1.5ms blocking SPI transfer that otherwise runs every tick.
+ * pixels_force_update guarantees the first frame after a timer start is sent,
+ * since the strip may power up with garbage after the ext power rail enables. */
+static struct led_rgb pixels_last[TOTAL_LEDS];
+static bool pixels_force_update = true;
+
+static void led_map_update_strip(void) {
+    if (pixels_force_update || memcmp(pixels, pixels_last, sizeof(pixels)) != 0) {
+        pixels_force_update = false;
+        memcpy(pixels_last, pixels, sizeof(pixels));
+        led_strip_update_rgb(led_strip_dev, pixels, TOTAL_LEDS);
+    }
+}
+
 static void led_map_tick(struct k_work *work) {
     memset(pixels, 0, sizeof(pixels));
 
@@ -847,7 +863,7 @@ static void led_map_tick(struct k_work *work) {
     render_bt_profile_overlay();
     render_indicator_leds();
 
-    led_strip_update_rgb(led_strip_dev, pixels, TOTAL_LEDS);
+    led_map_update_strip();
 
     /* Re-evaluate after rendering so the timer self-stops once a time-bounded
      * status (e.g. the BT green flash) ends and nothing else needs LEDs. */
@@ -867,12 +883,14 @@ static void led_map_stop_timer(void) {
         k_timer_stop(&led_map_timer);
         led_map_timer_running = false;
         memset(pixels, 0, sizeof(pixels));
-        led_strip_update_rgb(led_strip_dev, pixels, TOTAL_LEDS);
+        led_map_update_strip(); /* keeps pixels_last in sync */
     }
 }
 
 static void led_map_start_timer(void) {
     if (!led_map_timer_running) {
+        /* Strip state is unknown after the ext power rail was off. */
+        pixels_force_update = true;
         k_timer_start(&led_map_timer, K_MSEC(2), K_MSEC(50));
         led_map_timer_running = true;
     }

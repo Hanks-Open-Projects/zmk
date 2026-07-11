@@ -1,0 +1,21 @@
+# Copyright (c) 2024 The ZMK Contributors
+# SPDX-License-Identifier: MIT
+
+description: |
+  Lock mode behavior: persists a locked flag and powers the keyboard off
+  (System OFF) so that only the configured wake keys can wake it. On wake,
+  early-boot verification requires exactly those keys held alone for 3
+  seconds before the keyboard unlocks and boots normally; any other key or
+  an early release puts it straight back to sleep. No-op while USB powered.
+
+compatible: "zmk,behavior-lock-mode"
+
+include: zero_param.yaml
+
+properties:
+  wake-columns:
+    type: array
+    required: true
+    description: |
+      Matrix-transform column indices of the keys that wake and unlock the
+      keyboard (e.g. the columns of F and J).

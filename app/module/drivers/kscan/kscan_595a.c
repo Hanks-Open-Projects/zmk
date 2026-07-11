@@ -13,6 +13,9 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/pm/device.h>
+#include <zephyr/sys/util.h>
+
+#include <zmk/kscan_595a.h>
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
@@ -32,11 +35,68 @@ struct kscan_595a_data {
     const struct device *dev;
     kscan_callback_t callback;
     struct k_work_delayable work;
-    uint16_t idle_scans; /* consecutive scans with no key pressed */
-    bool waiting;        /* interrupt-wait idle mode: polling stopped */
+    uint16_t idle_scans;     /* consecutive scans with no key pressed */
+    bool waiting;            /* interrupt-wait idle mode: polling stopped */
+    uint64_t lock_wake_mask; /* if nonzero, PM suspend drives only these columns LOW */
     bool pressed[MAX_COLUMNS];
     struct gpio_callback sense_cb;
 };
+
+/* Drive LOW exactly the columns set in low_mask (bit n = column n), HIGH
+ * everywhere else. Bits are shifted highest column first so bit 0 lands on
+ * the first output in the chain. low_mask = 0 leaves all columns HIGH
+ * (all inactive). */
+static void kscan_595a_set_output_pattern(const struct device *dev, uint64_t low_mask) {
+    const struct kscan_595a_config *config = dev->config;
+    const uint8_t num_columns = config->hc595a_count * 8;
+
+    for (int c = num_columns - 1; c >= 0; c--) {
+        gpio_pin_set_dt(&config->ser_gpio, (low_mask & BIT64(c)) ? 0 : 1);
+        gpio_pin_set_dt(&config->sck_gpio, 1);
+        gpio_pin_set_dt(&config->sck_gpio, 0);
+    }
+}
+
+int zmk_kscan_595a_arm_lock_wake(const struct device *dev, uint64_t low_mask) {
+    struct kscan_595a_data *data = dev->data;
+
+    data->lock_wake_mask = low_mask;
+    return 0;
+}
+
+int zmk_kscan_595a_read_snapshot(const struct device *dev, uint64_t *pressed) {
+    const struct kscan_595a_config *config = dev->config;
+    const uint8_t num_columns = config->hc595a_count * 8;
+    uint64_t result = 0;
+
+    /* Fill the chain with 1s, then walk a single 0 through it, reading the
+     * sense line per column with the same adaptive settle as the poll scan. */
+    kscan_595a_set_output_pattern(dev, 0);
+
+    gpio_pin_set_dt(&config->ser_gpio, 0);
+    gpio_pin_set_dt(&config->sck_gpio, 1);
+    gpio_pin_set_dt(&config->sck_gpio, 0);
+    gpio_pin_set_dt(&config->ser_gpio, 1);
+
+    for (int col = 0; col < num_columns; col++) {
+        bool low = true;
+        for (uint16_t us = 0; us < config->settle_delay_us; us++) {
+            if (gpio_pin_get_dt(&config->sense_gpio) != 0) {
+                low = false;
+                break;
+            }
+            k_busy_wait(1);
+        }
+        if (low && gpio_pin_get_dt(&config->sense_gpio) == 0) {
+            result |= BIT64(col);
+        }
+        gpio_pin_set_dt(&config->sck_gpio, 1);
+        gpio_pin_set_dt(&config->sck_gpio, 0);
+    }
+
+    *pressed = result;
+    return 0;
+}
 
 /* Fill all shift register outputs with 0s. With every column LOW, any key
  * press pulls the shared sense line LOW, which can fire an interrupt. Used
@@ -220,13 +280,19 @@ static int kscan_595a_sleep_gpios(const struct device *dev) {
 }
 
 static int kscan_595a_pm_action(const struct device *dev, enum pm_device_action action) {
+    struct kscan_595a_data *data = dev->data;
     const struct kscan_595a_config *config = dev->config;
 
     switch (action) {
     case PM_DEVICE_ACTION_SUSPEND:
         kscan_595a_disable(dev);
-        /* Set all outputs LOW so any key press pulls sense LOW */
-        kscan_595a_set_all_outputs_low(dev);
+        /* Set outputs LOW so a key press pulls sense LOW: all columns by
+         * default (any key wakes), or only the armed lock-wake columns. */
+        if (data->lock_wake_mask != 0) {
+            kscan_595a_set_output_pattern(dev, data->lock_wake_mask);
+        } else {
+            kscan_595a_set_all_outputs_low(dev);
+        }
         /* Keep SER and SCK pulled LOW to preserve shift register state */
         kscan_595a_sleep_gpios(dev);
         /* Configure sense pin interrupt for wake-up from deep sleep.

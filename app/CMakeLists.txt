@@ -90,6 +90,8 @@ endif()
 
 target_sources_ifdef(CONFIG_ZMK_RGB_UNDERGLOW app PRIVATE src/behaviors/behavior_rgb_underglow.c)
 target_sources_ifdef(CONFIG_ZMK_LED_MAP app PRIVATE src/behaviors/behavior_led_map.c)
+target_sources_ifdef(CONFIG_ZMK_BEHAVIOR_LOCK_MODE app PRIVATE src/behaviors/behavior_lock_mode.c)
+target_sources_ifdef(CONFIG_ZMK_BEHAVIOR_LOCK_MODE app PRIVATE src/lock_mode.c)
 target_sources_ifdef(CONFIG_ZMK_BACKLIGHT app PRIVATE src/behaviors/behavior_backlight.c)
 
 target_sources_ifdef(CONFIG_ZMK_BATTERY_REPORTING app PRIVATE src/events/battery_state_changed.c)

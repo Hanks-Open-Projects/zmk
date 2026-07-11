@@ -45,6 +45,7 @@ static const struct device *const ext_power_dev = DEVICE_DT_GET(DT_INST(0, zmk_e
 #include <zmk/endpoints.h>
 #include <zmk/events/activity_state_changed.h>
 #include <zmk/events/usb_conn_state_changed.h>
+#include <zmk/events/battery_state_changed.h>
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
@@ -848,11 +849,47 @@ static void led_map_check_timer(void);
 static struct led_rgb pixels_last[TOTAL_LEDS];
 static bool pixels_force_update = true;
 
+#if IS_ENABLED(CONFIG_ZMK_LED_MAP_GAMMA_CORRECTION)
+/* Gamma 2.2 lookup: perceptual (linear pixel values) -> WS2812 PWM duty.
+ * Applied once per transmitted frame; the pixel buffer itself stays linear
+ * so all render math and the frame dirty-check are unaffected. Nonzero
+ * inputs are floored to 1 so dim content (low indicator caps, fade tails)
+ * stays lit instead of being crushed to black. */
+static const uint8_t gamma_lut[256] = {
+    0,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   1,   //
+    1,   1,   1,   1,   1,   1,   1,   1,   1,   2,   2,   2,   2,   2,   2,   2,   //
+    3,   3,   3,   3,   3,   4,   4,   4,   4,   5,   5,   5,   5,   6,   6,   6,   //
+    6,   7,   7,   7,   8,   8,   8,   9,   9,   9,   10,  10,  11,  11,  11,  12,  //
+    12,  13,  13,  13,  14,  14,  15,  15,  16,  16,  17,  17,  18,  18,  19,  19,  //
+    20,  20,  21,  22,  22,  23,  23,  24,  25,  25,  26,  26,  27,  28,  28,  29,  //
+    30,  30,  31,  32,  33,  33,  34,  35,  35,  36,  37,  38,  39,  39,  40,  41,  //
+    42,  43,  43,  44,  45,  46,  47,  48,  49,  49,  50,  51,  52,  53,  54,  55,  //
+    56,  57,  58,  59,  60,  61,  62,  63,  64,  65,  66,  67,  68,  69,  70,  71,  //
+    73,  74,  75,  76,  77,  78,  79,  81,  82,  83,  84,  85,  87,  88,  89,  90,  //
+    91,  93,  94,  95,  97,  98,  99,  100, 102, 103, 105, 106, 107, 109, 110, 111, //
+    113, 114, 116, 117, 119, 120, 121, 123, 124, 126, 127, 129, 130, 132, 133, 135, //
+    137, 138, 140, 141, 143, 145, 146, 148, 149, 151, 153, 154, 156, 158, 159, 161, //
+    163, 165, 166, 168, 170, 172, 173, 175, 177, 179, 181, 182, 184, 186, 188, 190, //
+    192, 194, 196, 197, 199, 201, 203, 205, 207, 209, 211, 213, 215, 217, 219, 221, //
+    223, 225, 227, 229, 231, 234, 236, 238, 240, 242, 244, 246, 248, 251, 253, 255, //
+};
+#endif
+
 static void led_map_update_strip(void) {
     if (pixels_force_update || memcmp(pixels, pixels_last, sizeof(pixels)) != 0) {
         pixels_force_update = false;
         memcpy(pixels_last, pixels, sizeof(pixels));
+#if IS_ENABLED(CONFIG_ZMK_LED_MAP_GAMMA_CORRECTION)
+        static struct led_rgb tx[TOTAL_LEDS];
+        for (int i = 0; i < TOTAL_LEDS; i++) {
+            tx[i].r = gamma_lut[pixels[i].r];
+            tx[i].g = gamma_lut[pixels[i].g];
+            tx[i].b = gamma_lut[pixels[i].b];
+        }
+        led_strip_update_rgb(led_strip_dev, tx, TOTAL_LEDS);
+#else
         led_strip_update_rgb(led_strip_dev, pixels, TOTAL_LEDS);
+#endif
     }
 }
 
@@ -939,6 +976,24 @@ static void led_map_check_timer(void) {
 
 /* --- Event listeners --- */
 
+#if CONFIG_ZMK_LED_MAP_LOW_BAT_WARN_LEVEL > 0
+/* Automatic low-battery warning: trigger the battery display when the state
+ * of charge drops to the threshold, re-warn after each further 5% drop, and
+ * re-arm once charging / back above the threshold. */
+static uint8_t bat_warned_at_soc = 0xFF; /* 0xFF = not currently warned */
+
+static void led_map_handle_battery_level(uint8_t soc) {
+    if (zmk_usb_is_powered() || soc > CONFIG_ZMK_LED_MAP_LOW_BAT_WARN_LEVEL) {
+        bat_warned_at_soc = 0xFF;
+        return;
+    }
+    if (bat_warned_at_soc == 0xFF || soc + 5 <= bat_warned_at_soc) {
+        bat_warned_at_soc = soc;
+        zmk_led_map_show_battery();
+    }
+}
+#endif
+
 static int led_map_event_listener(const zmk_event_t *eh) {
     const struct zmk_position_state_changed *pos_ev = as_zmk_position_state_changed(eh);
     if (pos_ev != NULL) {
@@ -1003,6 +1058,14 @@ static int led_map_event_listener(const zmk_event_t *eh) {
         return ZMK_EV_EVENT_BUBBLE;
     }
 
+#if CONFIG_ZMK_LED_MAP_LOW_BAT_WARN_LEVEL > 0
+    const struct zmk_battery_state_changed *bat_ev = as_zmk_battery_state_changed(eh);
+    if (bat_ev != NULL) {
+        led_map_handle_battery_level(bat_ev->state_of_charge);
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+#endif
+
     const struct zmk_usb_conn_state_changed *usb_ev = as_zmk_usb_conn_state_changed(eh);
     if (usb_ev != NULL) {
         if (usb_ev->conn_state == ZMK_USB_CONN_NONE) {
@@ -1037,6 +1100,9 @@ ZMK_SUBSCRIPTION(led_map, zmk_hid_indicators_changed);
 #endif
 
 ZMK_SUBSCRIPTION(led_map, zmk_usb_conn_state_changed);
+#if CONFIG_ZMK_LED_MAP_LOW_BAT_WARN_LEVEL > 0
+ZMK_SUBSCRIPTION(led_map, zmk_battery_state_changed);
+#endif
 
 #if IS_ENABLED(CONFIG_ZMK_BLE)
 ZMK_SUBSCRIPTION(led_map, zmk_ble_active_profile_changed);

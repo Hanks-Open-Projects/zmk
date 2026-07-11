@@ -32,6 +32,26 @@ config ZMK_LED_MAP_INDICATOR_BRT_MAX
     range 0 100
     default 10
 
+config ZMK_LED_MAP_GAMMA_CORRECTION
+    bool "Gamma-correct LED output (perceptual brightness)"
+    default y
+    help
+      Apply a gamma 2.2 lookup to the final frame before it is sent to the
+      strip, so configured brightness percentages behave perceptually rather
+      than as linear PWM duty. Colors render truer at low brightness and the
+      same apparent brightness draws less LED current. Disable for raw
+      linear output.
+
+config ZMK_LED_MAP_LOW_BAT_WARN_LEVEL
+    int "Automatic low-battery warning threshold in percent (0 = disabled)"
+    range 0 100
+    default 15
+    help
+      When the battery state of charge drops to this level (and the keyboard
+      is not USB powered), automatically trigger the battery level display.
+      It re-warns after each further 5% drop and re-arms when charged back
+      above the threshold.
+
 config ZMK_LED_MAP_FADE_STEP
     int "Reactive keypress fade step per tick (higher = faster fade)"
     range 1 50

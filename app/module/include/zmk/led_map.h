@@ -26,3 +26,8 @@ int zmk_led_map_change_spd(int direction);
 int zmk_led_map_change_idle_timeout(int direction);
 
 int zmk_led_map_show_battery(void);
+
+/* Flush any pending debounced state save immediately. Call before power-off
+ * paths (e.g. lock mode) that would otherwise discard changes made within
+ * the save debounce window. */
+int zmk_led_map_save_now(void);

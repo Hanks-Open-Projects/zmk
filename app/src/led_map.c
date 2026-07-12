@@ -1156,6 +1156,18 @@ static int led_map_save_state(void) {
 #endif
 }
 
+int zmk_led_map_save_now(void) {
+#if IS_ENABLED(CONFIG_SETTINGS)
+    if (!k_work_delayable_is_pending(&led_map_save_work)) {
+        return 0; /* nothing changed since the last save */
+    }
+    k_work_cancel_delayable(&led_map_save_work);
+    return settings_save_one("led_map/state", &lm_state, sizeof(lm_state));
+#else
+    return 0;
+#endif
+}
+
 /* --- Public API --- */
 
 int zmk_led_map_on(void) {

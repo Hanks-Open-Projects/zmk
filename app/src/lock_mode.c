@@ -19,6 +19,10 @@
 #include <zmk/kscan_595a.h>
 #include <zmk/lock_mode.h>
 
+#if IS_ENABLED(CONFIG_ZMK_LED_MAP)
+#include <zmk/led_map.h>
+#endif
+
 #if DT_HAS_COMPAT_STATUS_OKAY(zmk_ext_power_generic)
 #include <drivers/ext_power.h>
 #endif
@@ -65,6 +69,12 @@ int zmk_lock_mode_enter(void) {
         LOG_ERR("Failed to persist lock flag (%d)", ret);
         return ret;
     }
+
+#if IS_ENABLED(CONFIG_ZMK_LED_MAP)
+    /* Flush any pending debounced LED state save so effect/color changes
+     * made within the last save-debounce window survive the power-off. */
+    zmk_led_map_save_now();
+#endif
 
     LOG_INF("lock mode: locking");
     zmk_kscan_595a_arm_lock_wake(kscan, lock_wake_mask);

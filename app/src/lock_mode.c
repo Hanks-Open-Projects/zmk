@@ -8,6 +8,7 @@
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/init.h>
+#include <zephyr/pm/device.h>
 #include <zephyr/settings/settings.h>
 #include <zephyr/sys/poweroff.h>
 #include <zephyr/sys/util.h>
@@ -82,12 +83,26 @@ int zmk_lock_mode_enter(void) {
 }
 
 /* Failed verification: go straight back to locked System OFF. This runs in
- * early boot (before the ZMK subsystems are up), so it suspends devices
- * directly instead of using the full zmk_pm_soft_off() flow. */
-static void lock_power_off(const struct device *kscan) {
+ * early boot before the other subsystems are initialized, so only the kscan
+ * device is suspended — that applies the restricted wake pattern and arms
+ * the sense-line wake. Suspending the full device list this early is unsafe:
+ * one unrelated device erroring aborts the suspend loop before kscan and
+ * powers off with NO wake source armed (appears bricked until reflash).
+ * Returns only if the wake source could not be armed; the caller must then
+ * fail open (boot normally) rather than power off unwakeable. */
+static int lock_power_off(const struct device *kscan) {
+    int ret;
+
     zmk_kscan_595a_arm_lock_wake(kscan, lock_wake_mask);
-    zmk_pm_suspend_devices();
+
+    ret = pm_device_action_run(kscan, PM_DEVICE_ACTION_SUSPEND);
+    if (ret < 0 && ret != -EALREADY) {
+        LOG_ERR("lock mode: failed to arm wake source (%d)", ret);
+        return ret;
+    }
+
     sys_poweroff();
+    return 0; /* not reached */
 }
 
 /* Runs before BLE / USB / kscan / LED initialization: if the keyboard was
@@ -99,6 +114,20 @@ static int lock_mode_boot_check(void) {
     settings_load_subtree("lock_mode");
 
     if (!lock_locked) {
+        return 0;
+    }
+
+    /* The lock only survives wakes from System OFF (RESETREAS.OFF, set by
+     * the armed wake keys pulling the sense line). Any other boot reason —
+     * battery power-on (RESETREAS reads 0 after POR), the reset button,
+     * a soft reset after flashing — means deliberate physical access:
+     * force-unlock and boot normally. RESETREAS bits accumulate until
+     * cleared, so clear what we read to keep future decisions accurate. */
+    uint32_t reset_reas = nrf_power_resetreas_get(NRF_POWER);
+    nrf_power_resetreas_clear(NRF_POWER, reset_reas);
+    if ((reset_reas & NRF_POWER_RESETREAS_OFF_MASK) == 0) {
+        lock_save_flag(0);
+        LOG_INF("lock mode: unlocked by power-on/reset");
         return 0;
     }
 
@@ -121,6 +150,14 @@ static int lock_mode_boot_check(void) {
 #endif
 
     const struct device *kscan = DEVICE_DT_GET(DT_CHOSEN(zmk_kscan));
+
+    if (!device_is_ready(kscan)) {
+        /* Cannot scan or arm a wake source: fail open instead of bricking. */
+        LOG_ERR("lock mode: kscan not ready, failing open");
+        lock_save_flag(0);
+        return 0;
+    }
+
     int64_t join_deadline = k_uptime_get() + LOCK_JOIN_MS;
     int64_t hold_start = 0;
     bool unlock = false;
@@ -157,7 +194,8 @@ static int lock_mode_boot_check(void) {
     }
 
     if (!unlock) {
-        lock_power_off(kscan); /* does not return */
+        lock_power_off(kscan); /* returns only if the wake source failed to arm */
+        LOG_WRN("lock mode: failing open");
     }
 
     lock_save_flag(0);

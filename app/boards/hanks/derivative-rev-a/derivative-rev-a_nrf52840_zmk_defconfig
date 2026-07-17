@@ -48,5 +48,11 @@ CONFIG_ZMK_IDLE_SLEEP_TIMEOUT=1800000
 # Max BLE transmit power for the nRF52840 (+8 dBm) to boost signal/range
 CONFIG_BT_CTLR_TX_PWR_PLUS_8=y
 
+# BLE host compatibility, notably Linux/BlueZ and Intel adapters: skip 2M
+# PHY negotiation (EXPERIMENTAL_CONN) and don't withhold HID notifications
+# from hosts that fail to re-subscribe on reconnect (BlueZ quirk)
+CONFIG_ZMK_BLE_EXPERIMENTAL_CONN=y
+CONFIG_BT_GATT_ENFORCE_SUBSCRIPTION=n
+
 # Optimize for speed (-O2) instead of size (-Os); flash is only ~27% used
 CONFIG_SPEED_OPTIMIZATIONS=y

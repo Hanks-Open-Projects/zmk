@@ -15,6 +15,7 @@
 #include <zephyr/pm/device.h>
 #include <zephyr/sys/util.h>
 
+#include <zmk/debounce.h>
 #include <zmk/kscan_595a.h>
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
@@ -29,6 +30,7 @@ struct kscan_595a_config {
     uint16_t settle_delay_us;
     uint16_t poll_period_ms;
     uint16_t idle_timeout_ms;
+    struct zmk_debounce_config debounce_config;
 };
 
 struct kscan_595a_data {
@@ -38,7 +40,7 @@ struct kscan_595a_data {
     uint16_t idle_scans;     /* consecutive scans with no key pressed */
     bool waiting;            /* interrupt-wait idle mode: polling stopped */
     uint64_t lock_wake_mask; /* if nonzero, PM suspend drives only these columns LOW */
-    bool pressed[MAX_COLUMNS];
+    struct zmk_debounce_state debounce[MAX_COLUMNS];
     struct gpio_callback sense_cb;
 };
 
@@ -190,13 +192,16 @@ static void kscan_595a_scan(struct k_work *work) {
             pressed = (gpio_pin_get_dt(&config->sense_gpio) == 0);
         }
 
-        if (pressed != data->pressed[col]) {
-            data->pressed[col] = pressed;
-            if (data->callback) {
-                data->callback(dev, 0, col, pressed);
-            }
+        /* Debounce the raw reading: a state change is only reported once the
+         * switch has held the new state for the configured time, which
+         * filters contact bounce (spurious double-taps). */
+        zmk_debounce_update(&data->debounce[col], pressed, poll_ms, &config->debounce_config);
+        if (zmk_debounce_get_changed(&data->debounce[col]) && data->callback) {
+            data->callback(dev, 0, col, zmk_debounce_is_pressed(&data->debounce[col]));
         }
-        any_pressed = any_pressed || pressed;
+        /* Active includes pending debounce decisions, so the idle
+         * interrupt-wait is never entered mid-decision. */
+        any_pressed = any_pressed || zmk_debounce_is_active(&data->debounce[col]);
 
         /* Shift to next column */
         gpio_pin_set_dt(&config->sck_gpio, 1);
@@ -318,7 +323,7 @@ static int kscan_595a_init(const struct device *dev) {
     const struct kscan_595a_config *config = dev->config;
 
     data->dev = dev;
-    memset(data->pressed, 0, sizeof(data->pressed));
+    memset(data->debounce, 0, sizeof(data->debounce));
 
     /* Verify GPIOs are ready */
     if (!gpio_is_ready_dt(&config->ser_gpio)) {
@@ -365,6 +370,11 @@ static const struct kscan_driver_api kscan_595a_api = {
         .settle_delay_us = DT_INST_PROP(n, settle_delay_us),                                       \
         .poll_period_ms = DT_INST_PROP(n, poll_period_ms),                                         \
         .idle_timeout_ms = DT_INST_PROP(n, idle_timeout_ms),                                       \
+        .debounce_config =                                                                         \
+            {                                                                                      \
+                .debounce_press_ms = DT_INST_PROP(n, debounce_press_ms),                           \
+                .debounce_release_ms = DT_INST_PROP(n, debounce_release_ms),                       \
+            },                                                                                     \
     };                                                                                             \
                                                                                                    \
     PM_DEVICE_DT_INST_DEFINE(n, kscan_595a_pm_action);                                             \

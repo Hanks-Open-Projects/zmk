@@ -59,3 +59,20 @@ properties:
       level interrupt resumes polling on the first key press, so no scan
       work runs at all while no keys are held. 0 disables the interrupt
       wait and polls continuously.
+
+  debounce-press-ms:
+    type: int
+    default: 1
+    description: |
+      Debounce time for key press in milliseconds: a press is reported only
+      after the switch reads pressed continuously for this long. Raise if
+      phantom presses appear.
+
+  debounce-release-ms:
+    type: int
+    default: 5
+    description: |
+      Debounce time for key release in milliseconds: a release is reported
+      only after the switch reads released continuously for this long.
+      Filters contact bounce on release (accidental double-taps); raise if
+      double-taps persist.

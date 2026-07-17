@@ -52,6 +52,7 @@ config ZMK_KSCAN_595A
     bool
     default $(dt_compat_enabled,$(DT_COMPAT_ZMK_KSCAN_595A))
     select GPIO
+    select ZMK_DEBOUNCE
     help
       Kscan driver for 74HC595A shift registers using GPIO bit-banging.
       Compatible with luo_nice60 board interface.

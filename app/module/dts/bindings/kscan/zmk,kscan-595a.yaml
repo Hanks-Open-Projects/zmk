@@ -30,3 +30,49 @@ properties:
     type: int
     required: true
     description: Number of 74HC595A shift registers in the chain
+
+  settle-delay-us:
+    type: int
+    default: 10
+    description: |
+      Maximum microseconds to wait for the sense line to settle after
+      selecting a column. The scan exits the wait early as soon as the line
+      reads HIGH (released), so this bounds only the worst case: the line
+      rising back through its pull-up after a pressed column, and the
+      confirmation window for a genuine press. Lowering it below the line's
+      actual rise time causes ghost presses on the columns following a held
+      key — validate on hardware.
+
+  poll-period-ms:
+    type: int
+    default: 1
+    description: |
+      Scan poll period in milliseconds. 1 matches the 1000Hz USB polling
+      rate; raise to trade key latency for battery life.
+
+  idle-timeout-ms:
+    type: int
+    default: 30
+    description: |
+      How long to keep polling after the last key release before switching
+      to interrupt-driven wait: all columns are driven LOW and a sense-line
+      level interrupt resumes polling on the first key press, so no scan
+      work runs at all while no keys are held. 0 disables the interrupt
+      wait and polls continuously.
+
+  debounce-press-ms:
+    type: int
+    default: 1
+    description: |
+      Debounce time for key press in milliseconds: a press is reported only
+      after the switch reads pressed continuously for this long. Raise if
+      phantom presses appear.
+
+  debounce-release-ms:
+    type: int
+    default: 5
+    description: |
+      Debounce time for key release in milliseconds: a release is reported
+      only after the switch reads released continuously for this long.
+      Filters contact bounce on release (accidental double-taps); raise if
+      double-taps persist.

@@ -42,7 +42,12 @@ static enum zmk_activity_state activity_state;
 
 static uint32_t activity_last_uptime;
 
-#define MAX_IDLE_MS CONFIG_ZMK_IDLE_TIMEOUT
+/* Runtime-adjustable idle timeout, defaults to the configured value. */
+static uint32_t idle_timeout_ms = CONFIG_ZMK_IDLE_TIMEOUT;
+
+uint32_t zmk_activity_get_idle_timeout(void) { return idle_timeout_ms; }
+
+void zmk_activity_set_idle_timeout(uint32_t timeout_ms) { idle_timeout_ms = timeout_ms; }
 
 #if IS_ENABLED(CONFIG_ZMK_SLEEP)
 #define MAX_SLEEP_MS CONFIG_ZMK_IDLE_SLEEP_TIMEOUT
@@ -88,7 +93,7 @@ void activity_work_handler(struct k_work *work) {
         sys_poweroff();
     } else
 #endif /* IS_ENABLED(CONFIG_ZMK_SLEEP) */
-        if (inactive_time > MAX_IDLE_MS) {
+        if (inactive_time > idle_timeout_ms) {
             set_state(ZMK_ACTIVITY_IDLE);
         }
 }
